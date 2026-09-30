@@ -1,0 +1,31 @@
+# dsh-your-turn bundle patch — inserts one Cordis Loader entry for this package.
+#
+# The entry id is also the settings namespace this plugin owns: the Host half
+# declares a Config schema with `.volatile()` fields, `dsh-settings` projects it
+# into the profile settings document under this id, and the browser half reads
+# and writes it through `ctx.configForms.get("your-turn")`.
+#
+# Everything below is a default. A user profile patch can override any field by
+# targeting `id: your-turn`; a patch replaces the whole `config` block, so restate
+# every field you want to keep.
+- insert:
+    - id: your-turn
+      name: 'dsh-your-turn'
+      config:
+        enabled: true
+        surface: modal
+        autoDismissSeconds: 45
+        soundEnabled: true
+        soundPreset: chime
+        errorSoundPreset: alert
+        volume: 70
+        onlyWhenUnfocused: true
+        minTurnSeconds: 3
+        includeSubagents: false
+        notifyOn: success-and-failure
+        systemNotification: false
+        flashTitle: false
+        quietHoursEnabled: false
+        quietHoursStart: '22:00'
+        quietHoursEnd: '08:00'
+        muteAll: false

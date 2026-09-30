@@ -1,0 +1,15 @@
+# Dependencies and build output.
+node_modules/
+*.tsbuildinfo
+
+# Editor and OS noise.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Throwaway probes.
+.dump.txt
+.boot-html.txt
+.served-client.js
+probe-*.mjs

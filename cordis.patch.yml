@@ -12,20 +12,11 @@
     - id: your-turn
       name: 'dsh-your-turn'
       config:
-        enabled: true
         surface: modal
-        autoDismissSeconds: 45
         soundEnabled: true
         soundPreset: chime
         errorSoundPreset: alert
         volume: 70
         onlyWhenUnfocused: true
-        minTurnSeconds: 3
-        includeSubagents: false
-        notifyOn: success-and-failure
         systemNotification: false
         flashTitle: false
-        quietHoursEnabled: false
-        quietHoursStart: '22:00'
-        quietHoursEnd: '08:00'
-        muteAll: false

@@ -20,7 +20,6 @@ import Schema from '@deepseek-ai/schemastery'
 import {
   CONFIG_DEFAULTS,
   LIMITS,
-  NOTIFY_ON,
   PACKAGE_NAME,
   SOUND_PRESETS,
   SURFACES,
@@ -51,20 +50,9 @@ export interface Config extends YourTurnConfig {}
  * independently writable without remounting the plugin.
  */
 const fields = {
-  enabled: Schema.boolean()
-    .default(CONFIG_DEFAULTS.enabled)
-    .description('Master switch. When off the reminder is never raised.')
-    .volatile(),
   surface: Schema.union([...SURFACES])
     .default(CONFIG_DEFAULTS.surface)
-    .description('Centred modal, top banner, or both.')
-    .volatile(),
-  autoDismissSeconds: Schema.number()
-    .step(1)
-    .min(LIMITS.autoDismissSeconds.min)
-    .max(LIMITS.autoDismissSeconds.max)
-    .default(CONFIG_DEFAULTS.autoDismissSeconds)
-    .description('Dismiss the reminder after this many seconds. 0 keeps it until dismissed.')
+    .description('Centred modal or top banner.')
     .volatile(),
   soundEnabled: Schema.boolean()
     .default(CONFIG_DEFAULTS.soundEnabled)
@@ -89,21 +77,6 @@ const fields = {
     .default(CONFIG_DEFAULTS.onlyWhenUnfocused)
     .description('Stay silent while the window is focused and the tab is visible.')
     .volatile(),
-  minTurnSeconds: Schema.number()
-    .step(1)
-    .min(LIMITS.minTurnSeconds.min)
-    .max(LIMITS.minTurnSeconds.max)
-    .default(CONFIG_DEFAULTS.minTurnSeconds)
-    .description('Ignore turns shorter than this many seconds. 0 disables the filter.')
-    .volatile(),
-  includeSubagents: Schema.boolean()
-    .default(CONFIG_DEFAULTS.includeSubagents)
-    .description('Also remind for subagent sessions. Off by default — they cascade.')
-    .volatile(),
-  notifyOn: Schema.union([...NOTIFY_ON])
-    .default(CONFIG_DEFAULTS.notifyOn)
-    .description('Which turn outcomes raise a reminder.')
-    .volatile(),
   systemNotification: Schema.boolean()
     .default(CONFIG_DEFAULTS.systemNotification)
     .description('Mirror the reminder into a system notification when the page may use one.')
@@ -111,22 +84,6 @@ const fields = {
   flashTitle: Schema.boolean()
     .default(CONFIG_DEFAULTS.flashTitle)
     .description('Flash the document title until the page regains focus.')
-    .volatile(),
-  quietHoursEnabled: Schema.boolean()
-    .default(CONFIG_DEFAULTS.quietHoursEnabled)
-    .description('Suppress reminders inside the quiet window.')
-    .volatile(),
-  quietHoursStart: Schema.string()
-    .default(CONFIG_DEFAULTS.quietHoursStart)
-    .description('Quiet window start, HH:MM local time.')
-    .volatile(),
-  quietHoursEnd: Schema.string()
-    .default(CONFIG_DEFAULTS.quietHoursEnd)
-    .description('Quiet window end, HH:MM local time. A window may wrap past midnight.')
-    .volatile(),
-  muteAll: Schema.boolean()
-    .default(CONFIG_DEFAULTS.muteAll)
-    .description('Suppress every reminder and sound without changing the other settings.')
     .volatile(),
 } satisfies Record<keyof Config, unknown>
 

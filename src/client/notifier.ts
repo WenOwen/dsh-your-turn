@@ -7,8 +7,7 @@
  * - the queue the popup and the banner both drain (head first);
  * - the decision of whether a finished turn is worth interrupting for;
  * - the chime, the system notification, and the title flash;
- * - the two browser-local facts that survive a reload — silenced sessions and
- *   pushed-back reminders;
+ * - pushed-back reminders in browser-local storage;
  * - telling the *other* tabs of the same origin what it just did, so three open
  *   windows raise one reminder instead of three.
  *
@@ -17,9 +16,6 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import {
-  clockMinutes,
-  insideQuietWindow,
-  outcomeInScope,
   type SoundPreset,
   type YourTurnConfig,
 } from '../shared/settings.ts'
@@ -28,6 +24,7 @@ import { Observable } from './observable.ts'
 import type { ResolvedSettings, SettingsController } from './settings.ts'
 import { resolvePreset, type SoundEngine } from './sound.ts'
 import type { TurnEndRecord } from './turnWatcher.ts'
+import type { QuestionRecord } from './questionWatcher.ts'
 
 /** One raised reminder. */
 export interface Reminder {
@@ -55,8 +52,6 @@ export interface Reminder {
 export interface NotifierState {
   /** Pending reminders; index 0 is the one on screen. */
   reminders: readonly Reminder[]
-  /** Session ids silenced in this browser. */
-  mutedSessions: readonly string[]
   /** Whether the browser has allowed audio yet. */
   audioUnlocked: boolean
 }
@@ -77,6 +72,7 @@ const FLASH_INTERVAL_MS = 1200
 type TabMessage =
   | { readonly kind: 'raised'; readonly sessionId: string; readonly at: number }
   | { readonly kind: 'dismissed'; readonly sessionId: string }
+  | { readonly kind: 'question'; readonly key: string; readonly at: number }
 
 /** The slice of `ctx.sessions` the notifier reads for snooze re-checks. */
 interface SessionsFace {
@@ -103,9 +99,9 @@ export class Notifier {
   private readonly onUnlockChange: (unlocked: boolean) => void
 
   private local: LocalState = emptyLocalState()
-  private readonly timers = new Map<string, number>()
   private readonly snoozeTimers = new Map<string, number>()
   private readonly recentRaises = new Map<string, number>()
+  private readonly recentQuestions = new Map<string, number>()
   private channel: BroadcastChannel | undefined
   private removeFocusListener: (() => void) | undefined
   private flashTimer: number | undefined
@@ -134,7 +130,6 @@ export class Notifier {
     this.local = loadLocalState()
     this.state = new Observable<NotifierState>({
       reminders: [],
-      mutedSessions: [...this.local.mutedSessions],
       audioUnlocked: sound.isUnlocked(),
     })
     this.openChannel()
@@ -179,6 +174,22 @@ export class Notifier {
     })
   }
 
+  /** Questions need attention even in the foreground; do not cover the answer card with another modal. */
+  considerQuestion(record: QuestionRecord): void {
+    const config = this.config
+    if (this.disposed || !config.soundEnabled) return
+    if (record.subagent) return
+    const key = `${record.sessionId}:${record.key}`
+    const previous = this.recentQuestions.get(key)
+    if (previous !== undefined && Date.now() - previous < DEDUPE_MS) return
+    const at = Date.now()
+    this.recentQuestions.set(key, at)
+    if (this.recentQuestions.size > 512) this.recentQuestions.delete(this.recentQuestions.keys().next().value!)
+    this.post({ kind: 'question', key, at })
+    this.sound.play(resolvePreset(config.soundPreset), config.volume)
+    this.publishAudioState(this.sound.isUnlocked())
+  }
+
   /**
    * Remove one reminder from the queue.
    * @param id - reminder identity.
@@ -188,7 +199,6 @@ export class Notifier {
     const current = this.state.getSnapshot()
     const target = current.reminders.find((reminder) => reminder.id === id)
     if (target === undefined) return
-    this.clearTimer(id)
     this.state.set({
       ...current,
       reminders: current.reminders.filter((reminder) => reminder.id !== id),
@@ -201,7 +211,6 @@ export class Notifier {
   dismissAll(): void {
     const current = this.state.getSnapshot()
     if (current.reminders.length === 0) return
-    for (const reminder of current.reminders) this.clearTimer(reminder.id)
     this.state.set({ ...current, reminders: [] })
     this.afterQueueChange()
     for (const reminder of current.reminders) this.post({ kind: 'dismissed', sessionId: reminder.sessionId })
@@ -225,33 +234,6 @@ export class Notifier {
       this.raise({ ...target, id: `${target.id}:snoozed`, raisedAt: Date.now(), snoozed: true })
     }, SNOOZE_MS)
     this.snoozeTimers.set(target.sessionId, timer)
-  }
-
-  /**
-   * Silence one session in this browser.
-   * @param sessionId - session to silence.
-   */
-  muteSession(sessionId: string): void {
-    if (!this.local.mutedSessions.includes(sessionId)) {
-      this.local.mutedSessions = [...this.local.mutedSessions, sessionId]
-      this.persist()
-    }
-    const current = this.state.getSnapshot()
-    this.state.set({ ...current, mutedSessions: [...this.local.mutedSessions] })
-    for (const reminder of current.reminders.filter((entry) => entry.sessionId === sessionId)) {
-      this.dismiss(reminder.id)
-    }
-  }
-
-  /**
-   * Undo {@link muteSession}.
-   * @param sessionId - session to unmute.
-   */
-  unmuteSession(sessionId: string): void {
-    if (!this.local.mutedSessions.includes(sessionId)) return
-    this.local.mutedSessions = this.local.mutedSessions.filter((id) => id !== sessionId)
-    this.persist()
-    this.state.set({ ...this.state.getSnapshot(), mutedSessions: [...this.local.mutedSessions] })
   }
 
   /**
@@ -285,7 +267,6 @@ export class Notifier {
   /** Stop timers, close the cross-tab channel, and restore the title. */
   dispose(): void {
     this.disposed = true
-    for (const id of [...this.timers.keys()]) this.clearTimer(id)
     for (const timer of this.snoozeTimers.values()) window.clearTimeout(timer)
     this.snoozeTimers.clear()
     this.stopTitleFlash()
@@ -293,6 +274,7 @@ export class Notifier {
     this.removeFocusListener = undefined
     this.channel?.close()
     this.channel = undefined
+    this.recentQuestions.clear()
   }
 
   // ── Raising ───────────────────────────────────────────────────────────────
@@ -304,30 +286,11 @@ export class Notifier {
    * @returns a short reason, or undefined when the reminder should be raised.
    */
   private rejection(record: TurnEndRecord, config: YourTurnConfig): string | undefined {
-    if (!config.enabled) return 'plugin disabled'
-    if (config.muteAll) return 'muted'
-    if (!outcomeInScope(config.notifyOn, record.outcome)) return `outcome ${record.outcome} out of scope`
-    if (record.subagent && !config.includeSubagents) return 'subagent session'
-    if (record.durationMs < config.minTurnSeconds * 1000) return `turn shorter than ${String(config.minTurnSeconds)}s`
-    if (this.local.mutedSessions.includes(record.sessionId)) return 'session muted'
+    if (record.subagent) return 'subagent session'
     const snooze = this.local.snoozeUntil[record.sessionId]
     if (snooze !== undefined && snooze > Date.now()) return 'snoozed'
     if (config.onlyWhenUnfocused && pageAttended()) return 'window is attended'
-    if (this.inQuietWindow(config)) return 'quiet hours'
     return undefined
-  }
-
-  /**
-   * @param config - current configuration.
-   * @returns whether the current local time falls inside the configured quiet window.
-   */
-  private inQuietWindow(config: YourTurnConfig): boolean {
-    if (!config.quietHoursEnabled) return false
-    const start = clockMinutes(config.quietHoursStart)
-    const end = clockMinutes(config.quietHoursEnd)
-    if (start === undefined || end === undefined) return false
-    const now = new Date()
-    return insideQuietWindow(now.getHours() * 60 + now.getMinutes(), start, end)
   }
 
   /** Enqueue a reminder and fire its effects. */
@@ -339,7 +302,6 @@ export class Notifier {
     const current = this.state.getSnapshot()
     const queue = [...current.reminders, reminder].slice(-MAX_QUEUE)
     this.state.set({ ...current, reminders: queue })
-    this.armHead(config)
 
     if (config.soundEnabled) {
       const preset = reminder.outcome === 'completed' || reminder.outcome === 'unknown'
@@ -352,35 +314,8 @@ export class Notifier {
     if (config.flashTitle && !pageAttended()) this.startTitleFlash()
   }
 
-  /**
-   * Arm the auto-dismiss timer for whichever reminder is on screen.
-   *
-   * Only the head is timed. Timing the whole queue would let a reminder expire
-   * while it was still waiting its turn to be shown, so the user would never see
-   * it at all.
-   */
-  private armHead(config: YourTurnConfig): void {
-    for (const id of [...this.timers.keys()]) this.clearTimer(id)
-    const head = this.state.getSnapshot().reminders[0]
-    if (head === undefined || config.autoDismissSeconds <= 0) return
-    const timer = window.setTimeout(() => {
-      this.timers.delete(head.id)
-      this.dismiss(head.id)
-    }, config.autoDismissSeconds * 1000)
-    this.timers.set(head.id, timer)
-  }
-
-  /** Clear one timer. */
-  private clearTimer(id: string): void {
-    const timer = this.timers.get(id)
-    if (timer === undefined) return
-    window.clearTimeout(timer)
-    this.timers.delete(id)
-  }
-
-  /** Re-arm the head's timer, and stop the title flash once nothing is pending. */
+  /** Stop the title flash once nothing is pending. */
   private afterQueueChange(): void {
-    this.armHead(this.config)
     if (this.state.getSnapshot().reminders.length === 0) this.stopTitleFlash()
   }
 
@@ -470,6 +405,11 @@ export class Notifier {
       channel.onmessage = (event: MessageEvent): void => {
         const message = event.data as TabMessage | undefined
         if (message === undefined || typeof message !== 'object') return
+        if (message.kind === 'question' && typeof message.key === 'string' && typeof message.at === 'number') {
+          this.recentQuestions.set(message.key, message.at)
+          if (this.recentQuestions.size > 512) this.recentQuestions.delete(this.recentQuestions.keys().next().value!)
+          return
+        }
         if (message.kind === 'raised') {
           this.recentRaises.set(message.sessionId, message.at)
           return

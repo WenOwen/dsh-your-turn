@@ -18,11 +18,17 @@ export const PACKAGE_NAME = 'dsh-your-turn'
 /** Locale namespace registered through `ctx.locale.register`. */
 export const LOCALE_NS = 'yourTurn'
 
-/** Where the reminder is drawn. */
-export const SURFACES = ['modal', 'toast', 'both'] as const
+/**
+ * Where the reminder is drawn.
+ *
+ * The vocabulary is one-of, deliberately: a settings document written by an
+ * older build may still say `both`, and {@link normalizeConfig} folds that
+ * retired value back onto the default rather than drawing two reminders.
+ */
+export const SURFACES = ['modal', 'toast'] as const
 export type Surface = (typeof SURFACES)[number]
 
-/** Which turn-end outcomes raise a reminder. */
+/** Legacy helper vocabulary; the plugin itself now reminds for every outcome. */
 export const NOTIFY_ON = ['success', 'success-and-failure', 'all'] as const
 export type NotifyOn = (typeof NOTIFY_ON)[number]
 
@@ -46,12 +52,8 @@ export const FALLBACK_SOUND_PRESET: SoundPreset = 'chime'
 
 /** The user-editable configuration surface. Field names are settings paths. */
 export interface YourTurnConfig {
-  /** Master switch. When false the watcher keeps no state and nothing is shown. */
-  enabled: boolean
-  /** Reminder surface: the centred modal, the top banner, or both. */
+  /** Reminder surface: the centred modal or the top banner. */
   surface: Surface
-  /** Auto-dismiss delay in seconds; 0 keeps the reminder until it is dismissed. */
-  autoDismissSeconds: number
   /** Play a chime when a reminder is raised. */
   soundEnabled: boolean
   /** Voice used for successful turn ends. */
@@ -62,45 +64,22 @@ export interface YourTurnConfig {
   volume: number
   /** Only remind while the window is unfocused or the tab is hidden. */
   onlyWhenUnfocused: boolean
-  /** Skip reminders for turns shorter than this many seconds; 0 disables the filter. */
-  minTurnSeconds: number
-  /** Also remind for subagent sessions (off by default: they cascade). */
-  includeSubagents: boolean
-  /** Which outcomes raise a reminder. */
-  notifyOn: NotifyOn
   /** Mirror the reminder into a system notification when the page may use one. */
   systemNotification: boolean
   /** Flash the document title until the page regains focus. */
   flashTitle: boolean
-  /** Suppress reminders inside the quiet window. */
-  quietHoursEnabled: boolean
-  /** Quiet window start, `HH:MM` in local time. */
-  quietHoursStart: string
-  /** Quiet window end, `HH:MM` in local time; a window may wrap past midnight. */
-  quietHoursEnd: string
-  /** Suppress every reminder and every sound without changing the other settings. */
-  muteAll: boolean
 }
 
 /** Compiled-in defaults; the Host schema and the browser fallback both read these. */
 export const CONFIG_DEFAULTS: Readonly<YourTurnConfig> = Object.freeze({
-  enabled: true,
   surface: 'modal',
-  autoDismissSeconds: 45,
   soundEnabled: true,
   soundPreset: 'chime',
   errorSoundPreset: 'alert',
   volume: 70,
   onlyWhenUnfocused: true,
-  minTurnSeconds: 3,
-  includeSubagents: false,
-  notifyOn: 'success-and-failure',
   systemNotification: false,
   flashTitle: false,
-  quietHoursEnabled: false,
-  quietHoursStart: '22:00',
-  quietHoursEnd: '08:00',
-  muteAll: false,
 })
 
 /** Clamp helper shared by the schema bounds and the browser-side normalizer. */
@@ -111,9 +90,7 @@ export function clamp(value: number, min: number, max: number): number {
 
 /** Hard bounds; the Host schema and the browser normalizer must agree on these. */
 export const LIMITS = Object.freeze({
-  autoDismissSeconds: { min: 0, max: 3600 },
   volume: { min: 0, max: 100 },
-  minTurnSeconds: { min: 0, max: 3600 },
 })
 
 function oneOf<T extends string>(options: readonly T[], fallback: T, value: unknown): T {
@@ -144,7 +121,8 @@ export function normalizeClock(value: unknown, fallback: string): string {
  *
  * The settings document is user-editable YAML and may predate this build, so
  * every field is validated here rather than trusted. `undefined` fields fall
- * back to {@link CONFIG_DEFAULTS}.
+ * back to {@link CONFIG_DEFAULTS}, and a retired vocabulary value (for example
+ * the removed `surface: both`) falls back the same way.
  *
  * @param input - raw section from the settings document or a JSON payload.
  * @returns a complete, in-range configuration.
@@ -152,13 +130,7 @@ export function normalizeClock(value: unknown, fallback: string): string {
 export function normalizeConfig(input: unknown): YourTurnConfig {
   const raw = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>
   return {
-    enabled: bool(raw.enabled, CONFIG_DEFAULTS.enabled),
     surface: oneOf(SURFACES, CONFIG_DEFAULTS.surface, raw.surface),
-    autoDismissSeconds: clamp(
-      typeof raw.autoDismissSeconds === 'number' ? raw.autoDismissSeconds : CONFIG_DEFAULTS.autoDismissSeconds,
-      LIMITS.autoDismissSeconds.min,
-      LIMITS.autoDismissSeconds.max,
-    ),
     soundEnabled: bool(raw.soundEnabled, CONFIG_DEFAULTS.soundEnabled),
     soundPreset: oneOf(SOUND_PRESETS, CONFIG_DEFAULTS.soundPreset, raw.soundPreset),
     errorSoundPreset: oneOf(SOUND_PRESETS, CONFIG_DEFAULTS.errorSoundPreset, raw.errorSoundPreset),
@@ -168,19 +140,8 @@ export function normalizeConfig(input: unknown): YourTurnConfig {
       LIMITS.volume.max,
     ),
     onlyWhenUnfocused: bool(raw.onlyWhenUnfocused, CONFIG_DEFAULTS.onlyWhenUnfocused),
-    minTurnSeconds: clamp(
-      typeof raw.minTurnSeconds === 'number' ? raw.minTurnSeconds : CONFIG_DEFAULTS.minTurnSeconds,
-      LIMITS.minTurnSeconds.min,
-      LIMITS.minTurnSeconds.max,
-    ),
-    includeSubagents: bool(raw.includeSubagents, CONFIG_DEFAULTS.includeSubagents),
-    notifyOn: oneOf(NOTIFY_ON, CONFIG_DEFAULTS.notifyOn, raw.notifyOn),
     systemNotification: bool(raw.systemNotification, CONFIG_DEFAULTS.systemNotification),
     flashTitle: bool(raw.flashTitle, CONFIG_DEFAULTS.flashTitle),
-    quietHoursEnabled: bool(raw.quietHoursEnabled, CONFIG_DEFAULTS.quietHoursEnabled),
-    quietHoursStart: normalizeClock(raw.quietHoursStart, CONFIG_DEFAULTS.quietHoursStart),
-    quietHoursEnd: normalizeClock(raw.quietHoursEnd, CONFIG_DEFAULTS.quietHoursEnd),
-    muteAll: bool(raw.muteAll, CONFIG_DEFAULTS.muteAll),
   }
 }
 

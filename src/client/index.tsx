@@ -22,17 +22,18 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 
 import type { Context } from '@deepseek-ai/cordis'
-import { SettingsFormModel } from '@deepseek-ai/dsh-client-ui-primitives'
-import { PACKAGE_NAME, type YourTurnConfig } from '../shared/settings.ts'
+import { ImmediateSettings } from './immediateSettings.ts'
+import { PACKAGE_NAME } from '../shared/settings.ts'
 import { FIELD_SPECS } from './formSpecs.ts'
 import { DICTS, NS } from './locale.ts'
 import { Notifier } from './notifier.ts'
 import { ReminderSurface } from './PopupOverlay.tsx'
 import { SettingsController } from './settings.ts'
-import { SettingsPage, type SettingsFormView } from './SettingsPage.tsx'
+import { SettingsPage } from './SettingsPage.tsx'
 import { SoundEngine } from './sound.ts'
 import { installStyles } from './styles.ts'
 import { watchTurns } from './turnWatcher.ts'
+import { watchQuestions } from './questionWatcher.ts'
 
 /** Cordis plugin name; matches the package name. */
 export const name = PACKAGE_NAME
@@ -95,6 +96,11 @@ export function apply(ctx: Context): void {
   })
   ctx.effect(() => () => watcher.dispose(), 'dsh-your-turn: turn watcher')
 
+  // Optional and late-bound: older/reduced compositions can still remind at turn end.
+  ctx.inject(['uiSession' as never], (child) => {
+    child.effect(() => watchQuestions(child, (record) => notifier.considerQuestion(record)), 'dsh-your-turn: questions')
+  })
+
   // 4. The reminder surfaces.
   const openSession = createSessionOpener(ctx)
   ctx.slots.inject('shell.overlay', () =>
@@ -110,13 +116,10 @@ export function apply(ctx: Context): void {
     console.warn('[dsh-your-turn] no settings form; the configuration page is unavailable in this composition')
     return
   }
-  const model = new SettingsFormModel<Partial<YourTurnConfig>>(scope, [...FIELD_SPECS])
+  const model = new ImmediateSettings(scope, FIELD_SPECS)
   ctx.effect(() => () => model.dispose(), 'dsh-your-turn: settings model')
-  const view = model.bind<SettingsFormView>(() => ({
-    shell: model.shell(),
-    fields: Object.fromEntries(FIELD_SPECS.map((spec) => [spec.field, model.field(spec.field)])),
-  }))
-  const actions = model.actions()
+  const view = model.view
+  const actions = model.actions
   const t = ctx.locale.bind(NS)
   ctx.slots.inject('settings.section', () =>
     ctx.slots.register(

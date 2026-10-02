@@ -27,6 +27,40 @@ export const CSS = `
   font-family: var(--dsw-font-family, inherit);
 }
 
+/* Persistent banner: the shipped Toast always expires, so it is not used here. */
+[data-plugin="dsh-your-turn"].yt-banner {
+  position: fixed;
+  inset-block-start: 16px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  inline-size: min(520px, calc(100vw - 32px));
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--yt-radius);
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-elevation-prominent);
+  pointer-events: auto;
+}
+[data-plugin="dsh-your-turn"] .yt-banner__text {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+  font-size: 0.875em;
+}
+[data-plugin="dsh-your-turn"] .yt-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ── The reminder in the centred popup ─────────────────────────────────── */
 
 [data-plugin="dsh-your-turn"].yt-reminder {
@@ -206,6 +240,66 @@ export const CSS = `
   flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
+}
+
+[data-plugin="dsh-your-turn"] .yt-row__chip[aria-pressed="true"] {
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: inset 0 0 0 2px var(--dsw-alias-link);
+}
+
+[data-plugin="dsh-your-turn"] .yt-settings__feedback {
+  position: relative;
+  flex: none;
+  block-size: 2.8em;
+  font-size: 0.8125em;
+  line-height: 1.4;
+}
+[data-plugin="dsh-your-turn"] .yt-settings__feedbackText {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  max-block-size: 2.8em;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  color: var(--dsw-alias-state-success-primary);
+}
+[data-plugin="dsh-your-turn"] .yt-settings__feedbackText[data-visible="true"] { opacity: 1; }
+[data-plugin="dsh-your-turn"] .yt-settings__feedbackText[data-error="true"] { color: var(--dsw-alias-state-error-primary); }
+@media (prefers-reduced-motion: reduce) {
+  [data-plugin="dsh-your-turn"] .yt-settings__feedbackText { transition: none; }
+}
+
+[data-plugin="dsh-your-turn"] .yt-row__slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: clamp(150px, 22vw, 260px);
+  max-inline-size: 100%;
+}
+
+[data-plugin="dsh-your-turn"] .yt-row__range {
+  flex: 1;
+  min-inline-size: 0;
+  margin: 0;
+  accent-color: var(--dsw-alias-link);
+  cursor: pointer;
+}
+
+[data-plugin="dsh-your-turn"] .yt-row__range:disabled { cursor: default; }
+[data-plugin="dsh-your-turn"] .yt-row__range:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: 3px;
+}
+
+[data-plugin="dsh-your-turn"] .yt-row__rangeValue {
+  min-inline-size: 4ch;
+  text-align: end;
+  font-size: 0.875em;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-secondary);
 }
 
 [data-plugin="dsh-your-turn"] .yt-row__input {

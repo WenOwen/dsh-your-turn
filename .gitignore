@@ -13,3 +13,8 @@ Thumbs.db
 .boot-html.txt
 .served-client.js
 probe-*.mjs
+
+# Local audit scratch: DSH runtime copies extracted for inspection, and this
+# machine's ACL backups/reports. The audit reports themselves are committed.
+audit/runtime/
+audit/permissions/

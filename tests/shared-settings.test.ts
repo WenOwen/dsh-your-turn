@@ -23,39 +23,40 @@ describe('normalizeConfig', () => {
   })
 
   it('accepts a valid partial section', () => {
-    const config = normalizeConfig({ enabled: false, volume: 12, surface: 'toast' })
-    expect(config.enabled).toBe(false)
+    const config = normalizeConfig({ volume: 12, surface: 'toast' })
     expect(config.volume).toBe(12)
     expect(config.surface).toBe('toast')
     // Untouched fields keep their defaults.
     expect(config.soundPreset).toBe(CONFIG_DEFAULTS.soundPreset)
   })
 
+  it('folds the retired "both" surface back onto the default', () => {
+    // An older settings document may still ask for popup *and* banner; the
+    // vocabulary is one-of now, so it resolves to modal rather than drawing two.
+    expect(normalizeConfig({ surface: 'both' }).surface).toBe('modal')
+    expect(normalizeConfig({ surface: 'both' })).toEqual(CONFIG_DEFAULTS)
+  })
+
   it('rejects unknown vocabulary values by falling back', () => {
-    const config = normalizeConfig({ surface: 'hologram', soundPreset: 'gong', notifyOn: 'never' })
+    const config = normalizeConfig({ surface: 'hologram', soundPreset: 'gong' })
     expect(config.surface).toBe(CONFIG_DEFAULTS.surface)
     expect(config.soundPreset).toBe(CONFIG_DEFAULTS.soundPreset)
-    expect(config.notifyOn).toBe(CONFIG_DEFAULTS.notifyOn)
   })
 
   it('clamps and rounds numbers into their declared bounds', () => {
     expect(normalizeConfig({ volume: 900 }).volume).toBe(LIMITS.volume.max)
     expect(normalizeConfig({ volume: -5 }).volume).toBe(LIMITS.volume.min)
     expect(normalizeConfig({ volume: 33.7 }).volume).toBe(34)
-    expect(normalizeConfig({ autoDismissSeconds: 1e9 }).autoDismissSeconds).toBe(LIMITS.autoDismissSeconds.max)
-    expect(normalizeConfig({ minTurnSeconds: Number.NaN }).minTurnSeconds).toBe(LIMITS.minTurnSeconds.min)
+    expect(normalizeConfig({ autoDismissSeconds: 1 })).not.toHaveProperty('autoDismissSeconds')
+    expect(normalizeConfig({ minTurnSeconds: 3600 })).not.toHaveProperty('minTurnSeconds')
   })
 
   it('ignores non-boolean and non-numeric payloads', () => {
     const config = normalizeConfig({
-      enabled: 'yes',
       volume: 'loud',
-      quietHoursEnabled: 1,
       flashTitle: null,
     })
-    expect(config.enabled).toBe(CONFIG_DEFAULTS.enabled)
     expect(config.volume).toBe(CONFIG_DEFAULTS.volume)
-    expect(config.quietHoursEnabled).toBe(CONFIG_DEFAULTS.quietHoursEnabled)
     expect(config.flashTitle).toBe(CONFIG_DEFAULTS.flashTitle)
   })
 
@@ -66,11 +67,22 @@ describe('normalizeConfig', () => {
     }
   })
 
-  it('normalizes clock fields and rejects malformed ones', () => {
-    expect(normalizeConfig({ quietHoursStart: '7:05' }).quietHoursStart).toBe('07:05')
-    expect(normalizeConfig({ quietHoursEnd: '23:59' }).quietHoursEnd).toBe('23:59')
-    expect(normalizeConfig({ quietHoursStart: '25:00' }).quietHoursStart).toBe(CONFIG_DEFAULTS.quietHoursStart)
-    expect(normalizeConfig({ quietHoursStart: 'later' }).quietHoursStart).toBe(CONFIG_DEFAULTS.quietHoursStart)
+  it('ignores legacy master-switch, subagent, outcome, master-mute and quiet-hours fields', () => {
+    const legacy = {
+      enabled: false,
+      includeSubagents: true,
+      notifyOn: 'success',
+      muteAll: true,
+      quietHoursEnabled: true,
+      quietHoursStart: '11:00',
+      quietHoursEnd: '13:00',
+    }
+    const config = normalizeConfig({ ...legacy, volume: 35 })
+    expect(config).toEqual({ ...CONFIG_DEFAULTS, volume: 35 })
+    for (const field of Object.keys(legacy)) {
+      expect(config).not.toHaveProperty(field)
+      expect(CONFIG_DEFAULTS).not.toHaveProperty(field)
+    }
   })
 })
 

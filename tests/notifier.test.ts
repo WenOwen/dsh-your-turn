@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * The reminder pipeline against real browser globals: filtering gates, sound
- * selection, the queue, snooze and mute persistence, cross-tab de-duplication,
+ * selection, the queue, snooze persistence, legacy-state migration, cross-tab de-duplication,
  * and the title flash. The settings source and the audio engine are fakes, so
  * every assertion is about what the notifier decided or did.
  */
@@ -119,6 +119,16 @@ function setVisibility(state: 'visible' | 'hidden'): void {
   Object.defineProperty(document, 'visibilityState', { value: state, configurable: true })
 }
 
+/**
+ * Build the configuration an older settings document would produce: the
+ * attention gate off, plus whatever retired fields the test names. Removed
+ * fields are dropped by `normalizeConfig`, which is exactly the behaviour under
+ * test — they must not switch anything off.
+ */
+function legacySettings(fields: Record<string, unknown> = {}): Partial<YourTurnConfig> {
+  return normalizeConfig({ onlyWhenUnfocused: false, ...fields })
+}
+
 /** Force window focus a test needs. */
 function setFocus(focused: boolean): void {
   Object.defineProperty(document, 'hasFocus', { value: () => focused, configurable: true })
@@ -154,50 +164,40 @@ describe('pageAttended', () => {
 })
 
 describe('Notifier filtering', () => {
-  it('raises nothing when the plugin is disabled', () => {
-    const { notifier, sound } = build({ enabled: false })
+  it('reminds even when a legacy master switch says off', () => {
+    const { notifier, sound } = build(legacySettings({ enabled: false }))
     notifier.consider(record())
+    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    expect(sound.played).toHaveLength(1)
+    notifier.dispose()
+  })
+
+  it('never reminds for a subagent session', () => {
+    const { notifier, sound } = build(legacySettings({ includeSubagents: true }))
+    notifier.consider(record({ subagent: true }))
     expect(notifier.state.getSnapshot().reminders).toEqual([])
     expect(sound.played).toEqual([])
     notifier.dispose()
   })
 
-  it('raises nothing while muted', () => {
-    const { notifier } = build({ muteAll: true })
-    notifier.consider(record())
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
-    notifier.dispose()
-  })
-
-  it('skips subagent sessions unless asked for them', () => {
-    const off = build({ includeSubagents: false })
-    off.notifier.consider(record({ subagent: true }))
-    expect(off.notifier.state.getSnapshot().reminders).toEqual([])
-    off.notifier.dispose()
-
-    const on = build({ includeSubagents: true })
-    on.notifier.consider(record({ subagent: true }))
-    expect(on.notifier.state.getSnapshot().reminders).toHaveLength(1)
-    on.notifier.dispose()
-  })
-
-  it('skips turns shorter than the configured floor', () => {
-    const { notifier } = build({ minTurnSeconds: 5 })
-    notifier.consider(record({ durationMs: 4_999 }))
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
-    notifier.consider(record({ durationMs: 5_000 }))
+  it.each([0, 1, 1000])('reminds even for a %d ms turn with a legacy minimum-duration setting', (durationMs) => {
+    const { notifier, sound } = build(normalizeConfig({ minTurnSeconds: 3600, onlyWhenUnfocused: false }))
+    notifier.consider(record({ durationMs }))
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    expect(sound.played).toHaveLength(1)
     notifier.dispose()
   })
 
-  it('skips outcomes outside the configured scope', () => {
-    const { notifier } = build({ notifyOn: 'success' })
-    notifier.consider(record({ outcome: 'failed' }))
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
-    notifier.consider(record({ outcome: 'completed' }))
-    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
-    notifier.dispose()
-  })
+  it.each(['completed', 'failed', 'aborted', 'limited', 'unknown'] as const)(
+    'raises a reminder for the %s outcome',
+    (outcome) => {
+      const { notifier, sound } = build()
+      notifier.consider(record({ outcome }))
+      expect(notifier.state.getSnapshot().reminders).toMatchObject([{ outcome }])
+      expect(sound.played).toHaveLength(1)
+      notifier.dispose()
+    },
+  )
 
   it('stays silent while the page is attended, when asked to', () => {
     const { notifier } = build({ onlyWhenUnfocused: true })
@@ -210,16 +210,22 @@ describe('Notifier filtering', () => {
     notifier.dispose()
   })
 
-  it('suppresses reminders inside the quiet window', () => {
-    const { notifier } = build({ quietHoursEnabled: true, quietHoursStart: '11:00', quietHoursEnd: '13:00' })
-    notifier.consider(record())
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
-
-    vi.setSystemTime(new Date('2026-03-04T14:00:00'))
-    notifier.consider(record({ endedAt: 20_000 }))
-    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
-    notifier.dispose()
-  })
+  it.each(['completed', 'failed', 'aborted', 'limited', 'unknown'] as const)(
+    'ignores legacy notifyOn, muteAll and quiet-hours settings for %s',
+    (outcome) => {
+      // Normalize old stored fields instead of spreading them onto an effective Config.
+      const config = normalizeConfig({
+        notifyOn: 'success', muteAll: true,
+        quietHoursEnabled: true, quietHoursStart: '11:00', quietHoursEnd: '13:00',
+        onlyWhenUnfocused: false,
+      })
+      const { notifier, sound } = build(config)
+      notifier.consider(record({ outcome }))
+      expect(notifier.state.getSnapshot().reminders).toMatchObject([{ outcome }])
+      expect(sound.played).toHaveLength(1)
+      notifier.dispose()
+    },
+  )
 })
 
 describe('Notifier effects', () => {
@@ -242,38 +248,34 @@ describe('Notifier effects', () => {
     notifier.dispose()
   })
 
-  it('auto-dismisses after the configured delay', () => {
-    const { notifier } = build({ autoDismissSeconds: 10 })
+  it('ignores a legacy auto-dismiss delay and keeps the reminder until manual dismissal', () => {
+    const { notifier } = build(normalizeConfig({ autoDismissSeconds: 1, onlyWhenUnfocused: false }))
     notifier.consider(record())
+    vi.advanceTimersByTime(24 * 60 * 60_000)
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
-    vi.advanceTimersByTime(9_999)
-    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
-    vi.advanceTimersByTime(1)
+    notifier.dismiss(notifier.state.getSnapshot().reminders[0]!.id)
     expect(notifier.state.getSnapshot().reminders).toEqual([])
     notifier.dispose()
   })
 
-  it('keeps a reminder until it is dismissed when the delay is zero', () => {
-    const { notifier } = build({ autoDismissSeconds: 0 })
+  it('keeps a reminder indefinitely with default settings', () => {
+    const { notifier } = build()
     notifier.consider(record())
     vi.advanceTimersByTime(10 * 60_000)
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
     notifier.dispose()
   })
 
-  it('times only the reminder on screen, so a queued one cannot expire unseen', () => {
-    const { notifier } = build({ autoDismissSeconds: 10 })
+  it('keeps both displayed and queued reminders until each is manually dismissed', () => {
+    const { notifier } = build()
     notifier.consider(record())
     notifier.consider(record({ sessionId: 'b', endedAt: 20_000 }))
+    vi.advanceTimersByTime(24 * 60 * 60_000)
     expect(notifier.state.getSnapshot().reminders.map((r) => r.sessionId)).toEqual(['session-a', 'b'])
-
-    vi.advanceTimersByTime(10_000)
+    notifier.dismiss(notifier.state.getSnapshot().reminders[0]!.id)
+    vi.advanceTimersByTime(24 * 60 * 60_000)
     expect(notifier.state.getSnapshot().reminders.map((r) => r.sessionId)).toEqual(['b'])
-
-    // The promoted reminder gets its own full window, not the remainder of the first.
-    vi.advanceTimersByTime(9_999)
-    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
-    vi.advanceTimersByTime(1)
+    notifier.dismissAll()
     expect(notifier.state.getSnapshot().reminders).toEqual([])
     notifier.dispose()
   })
@@ -330,7 +332,7 @@ describe('Notifier effects', () => {
   })
 })
 
-describe('Notifier snooze and mute', () => {
+describe('Notifier snooze and legacy local state', () => {
   it('pushes a reminder back and brings it back after the snooze', () => {
     const { notifier, sound } = build()
     notifier.consider(record())
@@ -360,34 +362,71 @@ describe('Notifier snooze and mute', () => {
     notifier.dispose()
   })
 
-  it('silences one session, dismisses its reminder, and keeps it silent', () => {
-    const { notifier } = build()
+  it('ignores a legacy muted session and never republishes or persists the mute list', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ mutedSessions: ['session-a'], snoozeUntil: {} }))
+    const { notifier, sound } = build()
+    expect(notifier.state.getSnapshot()).not.toHaveProperty('mutedSessions')
     notifier.consider(record())
-    notifier.muteSession('session-a')
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
-    expect(notifier.state.getSnapshot().mutedSessions).toEqual(['session-a'])
-
-    notifier.consider(record({ endedAt: 20_000 }))
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
-
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as LocalState
-    expect(saved.mutedSessions).toEqual(['session-a'])
-
-    notifier.unmuteSession('session-a')
-    expect(notifier.state.getSnapshot().mutedSessions).toEqual([])
-    // Past the cross-tab de-duplication window, so this is a genuinely new handoff.
-    vi.advanceTimersByTime(5_000)
-    notifier.consider(record({ endedAt: 30_000 }))
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    expect(sound.played).toHaveLength(1)
+    notifier.snooze(notifier.state.getSnapshot().reminders[0]!.id)
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Record<string, unknown>
+    expect(saved).not.toHaveProperty('mutedSessions')
+    expect(saved.snoozeUntil).toEqual({ 'session-a': Date.now() + SNOOZE_MS })
+    vi.advanceTimersByTime(SNOOZE_MS)
+    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    expect(sound.played).toHaveLength(2)
     notifier.dispose()
   })
+})
 
-  it('restores a muted session from storage into the first snapshot', () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ mutedSessions: ['session-a'], snoozeUntil: {} }))
-    const { notifier } = build()
-    expect(notifier.state.getSnapshot().mutedSessions).toEqual(['session-a'])
-    notifier.consider(record())
+describe('question sounds', () => {
+  it('sounds even in the foreground, without another modal', () => {
+    const { notifier, sound } = build({ onlyWhenUnfocused: true })
+    notifier.considerQuestion({ sessionId: 'a', key: 'question:1', subagent: false })
+    expect(sound.played).toHaveLength(1)
     expect(notifier.state.getSnapshot().reminders).toEqual([])
+    notifier.considerQuestion({ sessionId: 'a', key: 'question:1', subagent: false })
+    expect(sound.played).toHaveLength(1)
+    notifier.considerQuestion({ sessionId: 'a', key: 'question:2', subagent: false })
+    expect(sound.played).toHaveLength(2)
+    notifier.dispose()
+  })
+  it('respects the sound switch and the subagent exclusion', () => {
+    const silent = build({ soundEnabled: false })
+    silent.notifier.considerQuestion({ sessionId: 'a', key: 'one', subagent: false })
+    expect(silent.sound.played).toEqual([])
+    silent.notifier.dispose()
+
+    const heard = build()
+    heard.notifier.considerQuestion({ sessionId: 'a', key: 'two', subagent: false })
+    expect(heard.sound.played).toHaveLength(1)
+    heard.notifier.dispose()
+
+    const subagent = build(legacySettings({ includeSubagents: true }))
+    subagent.notifier.considerQuestion({ sessionId: 'b', key: 'three', subagent: true })
+    expect(subagent.sound.played).toEqual([])
+    subagent.notifier.dispose()
+  })
+  it('ignores legacy quiet-hours, master-mute, outcome and session-mute settings for questions', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ mutedSessions: ['a'], snoozeUntil: {} }))
+    const config = normalizeConfig({
+      muteAll: true, notifyOn: 'success', quietHoursEnabled: true,
+      quietHoursStart: '11:00', quietHoursEnd: '13:00',
+    })
+    const { notifier, sound } = build(config)
+    notifier.considerQuestion({ sessionId: 'a', key: 'one', subagent: false })
+    expect(sound.played).toHaveLength(1)
+    expect(notifier.state.getSnapshot().reminders).toEqual([])
+    notifier.dispose()
+  })
+  it('suppresses a question another tab has announced without suppressing turn-end reminders', () => {
+    const { notifier, sound } = build()
+    FakeChannel.instances.at(-1)!.deliver({ kind: 'question', key: 'a:one', at: Date.now() })
+    notifier.considerQuestion({ sessionId: 'a', key: 'one', subagent: false })
+    expect(sound.played).toEqual([])
+    notifier.consider(record({ sessionId: 'a' }))
+    expect(sound.played).toHaveLength(1)
     notifier.dispose()
   })
 })

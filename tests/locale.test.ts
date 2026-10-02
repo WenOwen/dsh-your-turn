@@ -52,10 +52,9 @@ describe('settings layout', () => {
   it('points every row at a dictionary key that exists', () => {
     const keys = new Set(Object.keys(DICTS.zh) as YourTurnKey[])
     for (const group of GROUPS) {
-      expect(keys.has(group.titleKey), group.titleKey).toBe(true)
+      if (group.titleKey !== undefined) expect(keys.has(group.titleKey), group.titleKey).toBe(true)
       for (const row of group.rows) {
         expect(keys.has(row.labelKey), row.labelKey).toBe(true)
-        expect(keys.has(row.hintKey), row.hintKey).toBe(true)
         if (row.control.kind === 'chips') {
           for (const option of row.control.optionKeys) {
             expect(keys.has(option.labelKey), option.labelKey).toBe(true)

@@ -4,7 +4,7 @@
  * Both are registered into `shell.overlay`, the frame's additive floating layer.
  * The layer itself is click-through and entries opt back into the pointer, which
  * is exactly right here — the popup is a real dialog with its own focus trap and
- * the banner keeps the shipped primitive's click-through body.
+ * the persistent banner opts into pointer events only on its own card.
  *
  * Each surface carries this plugin's root marker on its own root node rather
  * than relying on a shared ancestor: the overlay entry, the modal card (a body
@@ -13,8 +13,8 @@
  * @module dsh-your-turn/client/PopupOverlay
  */
 
-import { useState, type ReactNode } from 'react'
-import { Button, Modal, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ReactNode } from 'react'
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { Notifier } from './notifier.ts'
 import { useSnapshot } from './observable.ts'
@@ -38,22 +38,16 @@ const ROOT_ATTR = { 'data-plugin': 'dsh-your-turn' } as const
  * Render the configured reminder surfaces for the head of the queue.
  *
  * @param props - injected actions and the localized translate seat.
- * @returns the popup, the banner, both, or nothing.
+ * @returns the popup, the banner, or nothing.
  */
 export function ReminderSurface({ t, notifier, openSession }: ReminderProps): ReactNode {
   const state = useSnapshot(notifier.state)
   const settings = useSnapshot(notifier.settingsSnapshot)
-  // With both surfaces configured, the banner is a first cue and finishes on its
-  // own; the popup stays until it is dismissed. Keyed by reminder id so the next
-  // one gets its own banner.
-  const [bannerSpentFor, setBannerSpentFor] = useState<string | undefined>(undefined)
-
   const head = state.reminders[0]
   if (head === undefined) return null
 
-  const surface = settings.config.surface
-  const showModal = surface === 'modal' || surface === 'both'
-  const showBanner = (surface === 'toast' || surface === 'both') && bannerSpentFor !== head.id
+  const showModal = settings.config.surface === 'modal'
+  const showBanner = settings.config.surface === 'toast'
   const queued = state.reminders.length - 1
 
   const dismiss = (): void => notifier.dismiss(head.id)
@@ -84,9 +78,6 @@ export function ReminderSurface({ t, notifier, openSession }: ReminderProps): Re
 
   const actions = (
     <div className="dshYourTurn yt-reminder__actions" {...ROOT_ATTR}>
-      <Button variant="ghost" size="sm" onClick={() => notifier.muteSession(head.sessionId)}>
-        {t('action.mute')}
-      </Button>
       <Button variant="ghost" size="sm" onClick={() => notifier.snooze(head.id)}>
         {t('action.snooze')}
       </Button>
@@ -102,16 +93,17 @@ export function ReminderSurface({ t, notifier, openSession }: ReminderProps): Re
   return (
     <>
       {showBanner ? (
-        <Toast
-          key={head.id}
-          text={t('toast.text', { title: t('title'), headline: t(headlineKey(head.outcome)) })}
-          holdMs={bannerHoldMs(settings.config.autoDismissSeconds)}
-          actions={[{ label: t('toast.jump'), onClick: jump }]}
-          onDone={() => {
-            if (showModal) setBannerSpentFor(head.id)
-            else dismiss()
-          }}
-        />
+        <aside className="dshYourTurn yt-banner" {...ROOT_ATTR} role="status" aria-label={t('title')}>
+          <div className="yt-banner__text">
+            <strong>{t(headlineKey(head.outcome))}</strong>
+            <span>{head.title === '' ? t('untitledSession') : head.title}</span>
+            {queued > 0 && <span>{t('meta.queued', { count: queued })}</span>}
+          </div>
+          <div className="yt-banner__actions">
+            <Button variant="ghost" size="sm" onClick={dismiss}>{t('action.dismiss')}</Button>
+            <Button variant="primary" size="sm" onClick={jump}>{t('toast.jump')}</Button>
+          </div>
+        </aside>
       ) : null}
       {showModal ? (
         <Modal
@@ -126,18 +118,4 @@ export function ReminderSurface({ t, notifier, openSession }: ReminderProps): Re
       ) : null}
     </>
   )
-}
-
-/**
- * How long the banner holds.
- *
- * The banner is a cue, not the reminder itself, so it never outlives a short
- * ceiling even when the popup is configured to stay for minutes.
- *
- * @param autoDismissSeconds - configured popup lifetime; 0 means "until dismissed".
- * @returns a hold in milliseconds.
- */
-function bannerHoldMs(autoDismissSeconds: number): number {
-  if (autoDismissSeconds <= 0) return 8000
-  return Math.max(3000, Math.min(autoDismissSeconds * 1000, 8000))
 }

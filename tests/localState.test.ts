@@ -44,7 +44,7 @@ describe('loadLocalState', () => {
 
   it('round-trips what saveLocalState wrote', () => {
     const storage = new FakeStorage()
-    const state: LocalState = { mutedSessions: ['a', 'b'], snoozeUntil: { c: Date.now() + 60_000 } }
+    const state: LocalState = { snoozeUntil: { c: Date.now() + 60_000 } }
     expect(saveLocalState(state, storage)).toBe(true)
     expect(loadLocalState(storage)).toEqual(state)
   })
@@ -62,7 +62,7 @@ describe('loadLocalState', () => {
       JSON.stringify({ mutedSessions: ['ok', 7, '', null], snoozeUntil: { keep: Date.now() + 1000, drop: 'soon' } }),
     )
     const state = loadLocalState(storage)
-    expect(state.mutedSessions).toEqual(['ok'])
+    expect(state).not.toHaveProperty('mutedSessions')
     expect(Object.keys(state.snoozeUntil)).toEqual(['keep'])
   })
 
@@ -84,17 +84,25 @@ describe('loadLocalState', () => {
     expect(loadLocalState(undefined as unknown as Storage)).toEqual(emptyLocalState())
   })
 
-  it('caps the silenced list so the key cannot grow without bound', () => {
+  it('ignores old mutedSessions while preserving valid snoozes, then saves only supported state', () => {
     const storage = new FakeStorage()
-    const many = Array.from({ length: 500 }, (_, index) => `session-${String(index)}`)
-    saveLocalState({ mutedSessions: many, snoozeUntil: {} }, storage)
+    const snoozeUntil = { keep: Date.now() + 60_000 }
+    storage.setItem(STORAGE_KEY, JSON.stringify({ mutedSessions: ['session-a'], snoozeUntil }))
     const state = loadLocalState(storage)
-    expect(state.mutedSessions).toHaveLength(200)
-    expect(state.mutedSessions.at(-1)).toBe('session-499')
+    expect(state).toEqual({ snoozeUntil })
+    expect(saveLocalState(state, storage)).toBe(true)
+    expect(JSON.parse(storage.getItem(STORAGE_KEY)!)).toEqual({ snoozeUntil })
   })
 })
 
 describe('saveLocalState', () => {
+  it('does not persist legacy mute fields even when an old object reaches the writer', () => {
+    const storage = new FakeStorage()
+    const legacy = { mutedSessions: ['session-a'], snoozeUntil: { keep: Date.now() + 60_000 } }
+    expect(saveLocalState(legacy, storage)).toBe(true)
+    expect(JSON.parse(storage.getItem(STORAGE_KEY)!)).toEqual({ snoozeUntil: legacy.snoozeUntil })
+  })
+
   it('reports a refused write instead of throwing', () => {
     const storage = new FakeStorage()
     storage.refuse = true

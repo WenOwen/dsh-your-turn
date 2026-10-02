@@ -109,7 +109,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => {
 import { DICTS, NS } from '../src/client/locale.ts'
 import { apply, inject, name } from '../src/client/index.tsx'
 import { STYLE_ELEMENT_ID } from '../src/client/styles.ts'
-import type { Notifier } from '../src/client/notifier.ts'
+import { Notifier } from '../src/client/notifier.ts'
 
 /** Stand-in for `ctx.sessions`. */
 class FakeSessions {
@@ -143,7 +143,7 @@ interface Registration {
 }
 
 /** Build the stand-in context and collect everything the plugin registers. */
-function makeContext(): {
+function makeContext(uiSession?: { sessionStatus: { getSnapshot(): ReadonlyMap<string, { pendingInteraction?: { kind: string; key: string } }>; subscribe(fn: () => void): () => void } }): {
   ctx: Context
   registrations: Registration[]
   locales: { ns: string; dicts: unknown }[]
@@ -158,7 +158,7 @@ function makeContext(): {
   const form = {
     getSnapshot: () => ({
       status: 'ready' as const,
-      value: { enabled: true, volume: 40, minTurnSeconds: 0 },
+      value: { enabled: true, volume: 40 },
       base: {},
       user: { volume: 40 },
       revision: 3,
@@ -186,7 +186,8 @@ function makeContext(): {
     },
     configForms: { get: () => form },
     sessions,
-    get: () => undefined,
+    get: (service: string) => service === 'uiSession' ? uiSession : service === 'sessions' ? sessions : undefined,
+    inject: (_services: unknown, callback: (child: Context) => void) => { if (uiSession) callback(ctx); return () => undefined },
     slots: {
       inject: (_slotName: string, callback: () => unknown) => callback(),
       register: (options: Registration['options'], component: unknown) => {
@@ -299,6 +300,26 @@ describe('client entry', () => {
     expect(info).toHaveBeenCalled()
     info.mockRestore()
     harness.runDisposers()
+  })
+
+  it('wires pending questions through the optional service and unsubscribes on teardown', () => {
+    const listeners = new Set<() => void>()
+    let snapshot = new Map<string, { pendingInteraction?: { kind: string; key: string } }>()
+    const uiSession = { sessionStatus: {
+      getSnapshot: () => snapshot,
+      subscribe: (fn: () => void) => { listeners.add(fn); return () => listeners.delete(fn) },
+    } }
+    const harness = makeContext(uiSession)
+    const consider = vi.spyOn(Notifier.prototype, 'considerQuestion').mockImplementation(() => {})
+    apply(harness.ctx)
+    snapshot = new Map([['a', { pendingInteraction: { kind: 'question', key: 'one' } }]])
+    for (const fn of listeners) fn()
+    for (const fn of listeners) fn()
+    expect(consider).toHaveBeenCalledOnce()
+    expect(consider).toHaveBeenCalledWith({ sessionId: 'a', key: 'one', subagent: false })
+    harness.runDisposers()
+    expect(listeners.size).toBe(0)
+    consider.mockRestore()
   })
 
   it('stops watching turns and dismisses the queue on dispose', () => {

@@ -16,19 +16,19 @@ ships no audio files at all.
   at, without a Host Remote, a poll, or a file watcher.
 - **Raises a real popup.** A centred modal with focus management, Escape and
   backdrop close, the turn's outcome, the session title, its directory, the turn
-  duration, and four buttons: **Open session**, **Mute this session**, **Remind me
-  in 5 minutes**, **Got it**. A lightweight top banner is available instead, with
-  or without the popup.
+  duration, and three buttons: **Open session**, **Remind me in 5 minutes**,
+  **Got it**. A lightweight top banner is available instead of the popup.
 - **Plays a chime.** Six voices plus silence — a two-partial bell, a short ping, a
   wooden marimba, a rising arcade arpeggio, a falling drop, and a tri-tone for
   failures — plus independent success and failure voices and a volume control.
-- **Knows when to stay quiet.** Only while the window is unfocused, a minimum turn
-  length, subagent exclusion, an outcome scope, per-session mute, quiet hours, and
-  a master silence switch.
+- **Reminds for every ending.** Completed, failed, aborted, limited, and unknown
+  outcomes all qualify, regardless of turn length. The background-only option still
+  controls when reminders appear; subagent sessions never raise reminders or question chimes.
+- **Waits for you.** Popups and banners stay until manually dismissed or opened; no automatic expiry.
 - **Coordinates open windows.** Three tabs on the same origin raise one reminder,
   not three, and closing it in one closes it everywhere.
-- **Remembers what matters.** Silenced sessions and pushed-back reminders survive a
-  reload; every policy setting lives in the deployment's settings document and
+- **Remembers what matters.** Pushed-back reminders survive a reload; every policy
+  setting lives in the deployment's settings document and
   reaches every browser pointed at it.
 
 ## What it does not do
@@ -90,8 +90,8 @@ cached tarball. Restart the Harness afterwards either way.
 npx @deepseek-ai/dsh plugin --profile web remove dsh-your-turn
 ```
 
-Disabling it is usually enough and needs no uninstall — set `enabled: false`
-(see below) or disable the Loader row:
+Disabling it in DSH's plugin manager is usually enough and needs no uninstall.
+For a file-based profile, disable the Loader row:
 
 ```yaml
 - id: your-turn
@@ -102,8 +102,9 @@ Disabling it is usually enough and needs no uninstall — set `enabled: false`
 
 | What | Where | Notes |
 | --- | --- | --- |
-| Every setting | the active profile's Cordis patch, `~/.dsh/profiles/<name>/cordis.patch.yml`, under entry id `your-turn` | Written by the shipped settings service; the plugin declares the fields as `.volatile()` so they are editable from Settings → **Your turn**. |
-| Silenced sessions, pushed-back reminders | browser `localStorage`, key `dsh-your-turn/state/v1` | Inherently per-browser; validated on read and dropped when malformed. |
+| Local page settings | the active profile's Cordis patch, `~/.dsh/profiles/<name>/cordis.patch.yml`, under entry id `your-turn` | Written by the shipped settings service; the plugin declares the fields as `.volatile()` so they are editable from Settings → **Your turn**. |
+| Remote page settings | browser `localStorage`, key `dsh-your-turn/settings/v1` | Per-browser and origin; does not write to the desktop deployment. |
+| Pushed-back reminders | browser `localStorage`, key `dsh-your-turn/state/v1` | Inherently per-browser; validated on read and dropped when malformed. |
 
 > **A profile patch row replaces the whole `config` block — it does not deep
 > merge.** If you override one field by hand, restate all of them; the settings
@@ -114,25 +115,19 @@ No credentials, tokens, or network calls of any kind are involved.
 
 ## Settings
 
-| Field | Default | Meaning |
-| --- | --- | --- |
-| `enabled` | `true` | Master switch. |
-| `surface` | `modal` | `modal`, `toast`, or `both`. |
-| `autoDismissSeconds` | `45` | `0` keeps the reminder until you close it. |
-| `soundEnabled` | `true` | Play a chime at all. |
-| `soundPreset` | `chime` | Voice for a clean handoff. |
-| `errorSoundPreset` | `alert` | Voice for a failed, aborted, or truncated turn. |
-| `volume` | `70` | 0–100. |
-| `onlyWhenUnfocused` | `true` | Stay silent while the window is focused and the tab visible. |
-| `minTurnSeconds` | `3` | Ignore shorter turns; `0` disables the filter. |
-| `includeSubagents` | `false` | Subagent sessions cascade; off by default. |
-| `notifyOn` | `success-and-failure` | `success`, `success-and-failure`, or `all`. |
-| `systemNotification` | `false` | Mirror into a system notification while the page is hidden. |
-| `flashTitle` | `false` | Alternate a marker in the tab title until the window regains focus. |
-| `quietHoursEnabled` | `false` | Suppress everything inside the window below. |
-| `quietHoursStart` | `22:00` | Local `HH:MM`. |
-| `quietHoursEnd` | `08:00` | Local `HH:MM`; earlier than the start wraps past midnight. |
-| `muteAll` | `false` | Temporary silence that keeps every other setting. |
+The settings page renders exactly these eight rows, in this order. The first four
+carry no group heading; the last four sit under **Chime**.
+
+| Settings page | Field | Default | Meaning |
+| --- | --- | --- | --- |
+| Reminder timing | `onlyWhenUnfocused` | `true` | Stay silent while the window is focused and the tab visible. |
+| Reminder surface | `surface` | `modal` | `modal` or `toast`; a retired `both` resolves to `modal`. |
+| Flash the tab title | `flashTitle` | `false` | Alternate a marker in the tab title until the window regains focus. |
+| Also send a system notification | `systemNotification` | `false` | Mirror into a system notification while the page is hidden. |
+| Play a chime | `soundEnabled` | `true` | Play a chime at all. |
+| Success response | `soundPreset` | `chime` | Voice for a clean handoff. |
+| Failure response | `errorSoundPreset` | `alert` | Voice for a failed, aborted, or truncated turn. |
+| Volume | `volume` | `70` | 0–100. |
 
 ## How a finished turn is detected
 
@@ -148,6 +143,17 @@ session's event window — its conversation is open in this page — the matchin
 `turn/end` record is read for the exact reason and turn number. Every other
 session is treated as a clean handoff, which is what "the agent went idle" means.
 
+## Question chimes
+
+On the verified DSH `0.2.0-rc.2` runtime, the official `uiSession.sessionStatus`
+pending-interaction source chimes once for a new question, even in the foreground
+or while the agent is still running. It does not put another modal over the question.
+It reuses the sound switch, the success preset, and the volume; the background-only
+option does not apply, and a subagent's question stays silent.
+Refreshing a question's status or hiding and reopening its card does not repeat the sound. Plan reviews, approvals,
+and ordinary text questions do not trigger it. Older/reduced compositions without
+this service keep turn-end reminders but have no question chime.
+
 ## Known limitations
 
 1. **One reminder per idle period, not per turn.** Several turns queued
@@ -161,12 +167,12 @@ session is treated as a clean handoff, which is what "the agent went idle" means
    opened in this browser classifies as a clean handoff.
 4. **Audio needs one gesture.** Browsers keep audio suspended until the page has
    been interacted with. The plugin resumes on the first pointer or key event;
-   until then the popup still appears and stays silent. The settings page's
-   **Preview** button unlocks it explicitly and shows a hint while it is locked.
-5. **No settings persistence for a non-loopback page.** The Host settings wire is
-   loopback-only by platform design, so a page reached over a tunnel runs on the
-   compiled-in defaults and its settings page reports that it is unavailable. The
-   reminders themselves work everywhere.
+   until then the popup still appears and stays silent. Clicking a sound preset in settings
+   unlocks audio, previews that voice immediately, and saves the selection.
+5. **Remote preferences belong to this browser.** The Host settings wire stays
+   loopback-only. Explicit memory-mode remote pages save to browser `localStorage`
+   (`dsh-your-turn/settings/v1`), not the desktop deployment. Options select immediately;
+   options, switches and valid inputs apply automatically, with no Save button. Confirmed saves briefly fade in “Changes saved” in a reserved bottom status slot; failures show an error there and retain the input.
 6. **Cross-window de-duplication is per origin.** Tabs and windows sharing an
    origin coordinate through `BroadcastChannel`. The same conversation open on a
    desktop browser and a phone is two origins, and both will remind — which is
@@ -177,7 +183,7 @@ session is treated as a clean handoff, which is what "the agent went idle" means
 ```bash
 pnpm install
 pnpm typecheck     # tsc --noEmit
-pnpm test          # 97 tests: pure config, watcher, notifier, storage, bundle smoke
+pnpm test          # config, watchers, notifier, settings interaction, storage, bundle smoke
 pnpm build         # lib/index.js + lib/client.js
 pnpm check         # the plugin structure/contract checker
 ```

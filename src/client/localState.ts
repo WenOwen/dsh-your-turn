@@ -2,18 +2,15 @@
  * Browser-local reminder state.
  *
  * The settings document holds *policy* — what the plugin should do. This module
- * holds the two facts that are inherently about one browser and one moment:
- * which sessions this user silenced, and which reminders they pushed back. They
- * are versioned, validated on read, and cheap to lose, so storage being disabled
- * degrades to an in-memory copy rather than an error.
+ * holds browser-local snooze deadlines, validated on read. Legacy muted-session
+ * lists are deliberately ignored now that session muting has been removed.
+ * Disabled storage degrades to an in-memory copy rather than an error.
  *
  * @module dsh-your-turn/client/localState
  */
 
 /** The persisted shape. */
 export interface LocalState {
-  /** Session ids silenced in this browser. */
-  mutedSessions: string[]
   /** Session id → epoch ms before which reminders are suppressed. */
   snoozeUntil: Record<string, number>
 }
@@ -21,12 +18,9 @@ export interface LocalState {
 /** Versioned key: an incompatible shape bumps the version instead of migrating. */
 export const STORAGE_KEY = 'dsh-your-turn/state/v1'
 
-/** Silenced-session cap, so the key cannot grow without bound. */
-const MAX_MUTED = 200
-
 /** @returns an empty state. */
 export function emptyLocalState(): LocalState {
-  return { mutedSessions: [], snoozeUntil: {} }
+  return { snoozeUntil: {} }
 }
 
 /**
@@ -49,9 +43,6 @@ export function loadLocalState(storage?: Storage): LocalState {
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return emptyLocalState()
     const record = parsed as Record<string, unknown>
-    const muted = Array.isArray(record.mutedSessions)
-      ? record.mutedSessions.filter((id): id is string => typeof id === 'string' && id !== '').slice(-MAX_MUTED)
-      : []
     const snooze: Record<string, number> = {}
     if (typeof record.snoozeUntil === 'object' && record.snoozeUntil !== null) {
       const now = Date.now()
@@ -60,7 +51,7 @@ export function loadLocalState(storage?: Storage): LocalState {
         if (typeof value === 'number' && Number.isFinite(value) && value > now) snooze[id] = value
       }
     }
-    return { mutedSessions: muted, snoozeUntil: snooze }
+    return { snoozeUntil: snooze }
   } catch {
     return emptyLocalState()
   }
@@ -79,7 +70,6 @@ export function saveLocalState(state: LocalState, storage?: Storage): boolean {
     target.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        mutedSessions: state.mutedSessions.slice(-MAX_MUTED),
         snoozeUntil: state.snoozeUntil,
       }),
     )

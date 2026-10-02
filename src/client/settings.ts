@@ -15,6 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ConfigForm, ConfigForms } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { ENTRY_ID, normalizeConfig, type YourTurnConfig } from '../shared/settings.ts'
 import { Observable } from './observable.ts'
+import { AdaptiveSettings } from './browserSettings.ts'
 
 /** State of this page's bind to the Host settings section. */
 export type SettingsStatus = 'loading' | 'ready' | 'unavailable'
@@ -27,6 +28,8 @@ export interface ResolvedSettings {
   status: SettingsStatus
   /** Whether the Host document accepts writes from this page. */
   writable: boolean
+  /** Remote pages save per-browser preferences instead of calling Host settings. */
+  storage?: 'host' | 'browser'
 }
 
 /**
@@ -37,10 +40,9 @@ export interface ResolvedSettings {
  * settings service was replaced by something without the form API, which is a
  * broken composition rather than an unsupported one.
  *
- * A page that cannot reach the Host document — a remote browser keeps settings
- * process-local, and the settings wire is loopback-only — still gets a usable
- * plugin: the snapshot stays on the compiled-in defaults and reports
- * `unavailable`, which is what the settings page renders as its notice.
+ * The official settings wire is loopback-only. An explicitly memory-mode remote
+ * page uses a separate browser-local form; inaccessible Host-mode forms stay
+ * unavailable/read-only rather than silently masking a Host failure.
  */
 export class SettingsController {
   /** Resolved configuration; the single source the reminder path reads. */
@@ -66,7 +68,7 @@ export class SettingsController {
       })
       return
     }
-    const form = forms.get<Partial<YourTurnConfig>>(ENTRY_ID)
+    const form = new AdaptiveSettings(forms.get<Partial<YourTurnConfig>>(ENTRY_ID))
     this.form = form
     const recompute = (): void => this.recompute(form)
     this.snapshot = new Observable<ResolvedSettings>(read(form))
@@ -107,5 +109,6 @@ function read(form: ConfigForm<Partial<YourTurnConfig>>): ResolvedSettings {
     config: normalizeConfig(state.value),
     status: state.status,
     writable: state.writable,
+    storage: state.mode === 'memory' ? 'browser' : 'host',
   }
 }

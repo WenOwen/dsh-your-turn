@@ -133,23 +133,14 @@ describe('lib/index.js', () => {
     const shape = Config.toJSON()
     // `toJSON()` is a reference table: the root object node points at one node
     // per field. `dsh-settings` projects exactly the volatile ones, so the
-    // invariant that matters is "17 fields, every one volatile".
+    // invariant that matters is "8 fields, every one volatile".
     const root = Object.values(shape.refs).find((node) => node.type === 'object' && node.dict !== undefined)
     expect(root?.dict).toBeDefined()
     const fields = root!.dict!
     expect(Object.keys(fields).sort()).toEqual([
-      'autoDismissSeconds',
-      'enabled',
       'errorSoundPreset',
       'flashTitle',
-      'includeSubagents',
-      'minTurnSeconds',
-      'muteAll',
-      'notifyOn',
       'onlyWhenUnfocused',
-      'quietHoursEnabled',
-      'quietHoursEnd',
-      'quietHoursStart',
       'soundEnabled',
       'soundPreset',
       'surface',
@@ -183,6 +174,8 @@ describe('lib/index.js', () => {
 
     expect(() => Config({ volume: 500 })).toThrow()
     expect(() => Config({ surface: 'hologram' })).toThrow()
+    // The retired "both" surface is no longer part of the vocabulary.
+    expect(() => Config({ surface: 'both' })).toThrow()
   })
 
   it('asks the settings service not to advertise an auto-generated page', async () => {

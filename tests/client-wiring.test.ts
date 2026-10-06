@@ -238,33 +238,40 @@ describe('client entry', () => {
     const element = document.head.querySelector(selector)
     expect(element).not.toBeNull()
     expect(element?.textContent).toContain('.yt-reminder')
+    expect(element?.textContent).toContain('.yt-sound')
     harness.runDisposers()
     expect(document.head.querySelector(selector)).toBeNull()
   })
 
-  it('registers the reminder overlay and the settings page, and nothing else', () => {
+  it('registers the reminder overlay, the settings page and the sidebar-foot switch, and nothing else', () => {
     const harness = makeContext()
     apply(harness.ctx)
-    expect(harness.registrations.map((entry) => entry.options.name)).toEqual(['shell.overlay', 'settings.section'])
+    expect(harness.registrations.map((entry) => entry.options.name)).toEqual(['shell.overlay', 'settings.section', 'sidebar.footer.action'])
 
-    const [overlay, section] = harness.registrations
+    const [overlay, section, sound] = harness.registrations
     expect(overlay!.options.id).toBe('dsh-your-turn')
     expect(overlay!.options.locale).toBe(NS)
     expect(section!.options.id).toBe('your-turn')
     expect(section!.options.locale).toBe(NS)
     expect(section!.options.order).toBe(60)
+    // The foot seat is shared with the remote-web-ui phone trigger; this
+    // plugin's entry is the one beside it.
+    expect(sound!.options.id).toBe('dsh-your-turn/sound')
+    expect(sound!.options.locale).toBe(NS)
+    expect(sound!.options.order).toBe(10)
     expect(typeof overlay!.component).toBe('function')
     expect(typeof section!.component).toBe('function')
+    expect(typeof sound!.component).toBe('function')
     harness.runDisposers()
   })
 
-  it('injects the same notifier into both surfaces', () => {
+  it('injects one notifier into each surface this plugin mounts', () => {
     const harness = makeContext()
     apply(harness.ctx)
-    const fromOverlay = harness.registrations[0]!.options.inject?.() as { notifier: Notifier } | undefined
-    const fromSection = harness.registrations[1]!.options.inject?.() as { notifier: Notifier } | undefined
-    expect(fromOverlay?.notifier).toBeDefined()
-    expect(fromOverlay?.notifier).toBe(fromSection?.notifier)
+    const faces = harness.registrations.map((entry) => entry.options.inject?.() as { notifier: Notifier } | undefined)
+    for (const face of faces) expect(face?.notifier).toBeDefined()
+    expect(faces[1]?.notifier).toBe(faces[0]?.notifier)
+    expect(faces[2]?.notifier).toBe(faces[0]?.notifier)
     harness.runDisposers()
   })
 

@@ -54,6 +54,13 @@ const fields = {
     .default(CONFIG_DEFAULTS.surface)
     .description('Centred modal or top banner.')
     .volatile(),
+  autoDismissSeconds: Schema.number()
+    .step(1)
+    .min(LIMITS.autoDismissSeconds.min)
+    .max(LIMITS.autoDismissSeconds.max)
+    .default(CONFIG_DEFAULTS.autoDismissSeconds)
+    .description('Seconds before a reminder dismisses itself; 0 keeps it until closed.')
+    .volatile(),
   soundEnabled: Schema.boolean()
     .default(CONFIG_DEFAULTS.soundEnabled)
     .description('Play a chime when a reminder is raised.')

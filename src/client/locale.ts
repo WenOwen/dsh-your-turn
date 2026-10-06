@@ -72,6 +72,9 @@ const zh = {
   'option.surface.modal': '居中弹窗',
   'option.surface.toast': '顶部横幅',
 
+  'field.autoDismissSeconds.label': '自动消失（秒）',
+  'field.autoDismissSeconds.hint': '提醒出现这么久后自动关闭；0 表示不自动消失，需要手动关闭。',
+
   'field.soundEnabled.label': '播放提示音',
   'field.soundEnabled.hint': '回合结束和等待你回答问题时响铃；关闭后仍显示原有提示，但不出声。',
 
@@ -85,7 +88,10 @@ const zh = {
   'option.sound.arcade': '街机',
   'option.sound.drop': '水滴',
   'option.sound.alert': '警示',
-  'option.sound.none': '静音',
+
+  'sound.toggle.label': '提示音',
+  'sound.toggle.mute': '静音（点击关闭提示音）',
+  'sound.toggle.unmute': '开启提示音',
 
   'field.volume.label': '音量',
   'field.volume.hint': '0 到 100。',
@@ -184,6 +190,9 @@ const en: Record<YourTurnKey, string> = {
   'option.surface.modal': 'Centred popup',
   'option.surface.toast': 'Top banner',
 
+  'field.autoDismissSeconds.label': 'Auto-dismiss (seconds)',
+  'field.autoDismissSeconds.hint': 'The reminder closes itself after this long; 0 keeps it until you close it.',
+
   'field.soundEnabled.label': 'Play a chime',
   'field.soundEnabled.hint': 'Chime at turn end and when a question needs your answer. Off keeps the original UI but silences both.',
 
@@ -197,7 +206,10 @@ const en: Record<YourTurnKey, string> = {
   'option.sound.arcade': 'Arcade',
   'option.sound.drop': 'Drop',
   'option.sound.alert': 'Alert',
-  'option.sound.none': 'Silent',
+
+  'sound.toggle.label': 'Chime',
+  'sound.toggle.mute': 'Mute the chime',
+  'sound.toggle.unmute': 'Turn the chime back on',
 
   'field.volume.label': 'Volume',
   'field.volume.hint': 'From 0 to 100.',

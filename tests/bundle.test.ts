@@ -133,11 +133,12 @@ describe('lib/index.js', () => {
     const shape = Config.toJSON()
     // `toJSON()` is a reference table: the root object node points at one node
     // per field. `dsh-settings` projects exactly the volatile ones, so the
-    // invariant that matters is "8 fields, every one volatile".
+    // invariant that matters is "9 fields, every one volatile".
     const root = Object.values(shape.refs).find((node) => node.type === 'object' && node.dict !== undefined)
     expect(root?.dict).toBeDefined()
     const fields = root!.dict!
     expect(Object.keys(fields).sort()).toEqual([
+      'autoDismissSeconds',
       'errorSoundPreset',
       'flashTitle',
       'onlyWhenUnfocused',
@@ -163,16 +164,20 @@ describe('lib/index.js', () => {
 
     const defaults = Config({})
     expect(read(defaults, 'volume')).toBe(70)
+    expect(read(defaults, 'autoDismissSeconds')).toBe(5)
     expect(read(defaults, 'soundPreset')).toBe('chime')
     expect(read(defaults, 'errorSoundPreset')).toBe('alert')
     expect(read(defaults, 'surface')).toBe('modal')
 
-    const partial = Config({ volume: 5, surface: 'toast' })
+    const partial = Config({ volume: 5, surface: 'toast', autoDismissSeconds: 0 })
     expect(read(partial, 'volume')).toBe(5)
     expect(read(partial, 'surface')).toBe('toast')
+    expect(read(partial, 'autoDismissSeconds')).toBe(0)
     expect(read(partial, 'soundPreset')).toBe('chime')
 
     expect(() => Config({ volume: 500 })).toThrow()
+    expect(() => Config({ autoDismissSeconds: 601 })).toThrow()
+    expect(() => Config({ autoDismissSeconds: -1 })).toThrow()
     expect(() => Config({ surface: 'hologram' })).toThrow()
     // The retired "both" surface is no longer part of the vocabulary.
     expect(() => Config({ surface: 'both' })).toThrow()

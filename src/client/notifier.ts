@@ -100,6 +100,7 @@ export class Notifier {
 
   private local: LocalState = emptyLocalState()
   private readonly snoozeTimers = new Map<string, number>()
+  private readonly dismissTimers = new Map<string, number>()
   private readonly recentRaises = new Map<string, number>()
   private readonly recentQuestions = new Map<string, number>()
   private channel: BroadcastChannel | undefined
@@ -196,6 +197,7 @@ export class Notifier {
    * @param announce - whether to tell other tabs (false when they told us).
    */
   dismiss(id: string, announce = true): void {
+    this.clearDismissTimer(id)
     const current = this.state.getSnapshot()
     const target = current.reminders.find((reminder) => reminder.id === id)
     if (target === undefined) return
@@ -209,11 +211,21 @@ export class Notifier {
 
   /** Remove every pending reminder. */
   dismissAll(): void {
+    for (const timer of this.dismissTimers.values()) window.clearTimeout(timer)
+    this.dismissTimers.clear()
     const current = this.state.getSnapshot()
     if (current.reminders.length === 0) return
     this.state.set({ ...current, reminders: [] })
     this.afterQueueChange()
     for (const reminder of current.reminders) this.post({ kind: 'dismissed', sessionId: reminder.sessionId })
+  }
+
+  /** Cancel one reminder's self-dismissal, whatever scheduled it. */
+  private clearDismissTimer(id: string): void {
+    const timer = this.dismissTimers.get(id)
+    if (timer === undefined) return
+    window.clearTimeout(timer)
+    this.dismissTimers.delete(id)
   }
   /**
    * Push one reminder back by {@link SNOOZE_MS}.
@@ -269,6 +281,8 @@ export class Notifier {
     this.disposed = true
     for (const timer of this.snoozeTimers.values()) window.clearTimeout(timer)
     this.snoozeTimers.clear()
+    for (const timer of this.dismissTimers.values()) window.clearTimeout(timer)
+    this.dismissTimers.clear()
     this.stopTitleFlash()
     this.removeFocusListener?.()
     this.removeFocusListener = undefined
@@ -302,6 +316,19 @@ export class Notifier {
     const current = this.state.getSnapshot()
     const queue = [...current.reminders, reminder].slice(-MAX_QUEUE)
     this.state.set({ ...current, reminders: queue })
+
+    // Self-dismissal is scheduled from the raise-time configuration, but the
+    // fire path re-reads it: turning the feature off while a reminder is up
+    // keeps that reminder instead of racing the user's own edit.
+    const autoDismissMs = config.autoDismissSeconds * 1000
+    if (autoDismissMs > 0) {
+      this.clearDismissTimer(reminder.id)
+      this.dismissTimers.set(reminder.id, window.setTimeout(() => {
+        this.dismissTimers.delete(reminder.id)
+        if (this.disposed || this.config.autoDismissSeconds <= 0) return
+        this.dismiss(reminder.id)
+      }, autoDismissMs))
+    }
 
     if (config.soundEnabled) {
       const preset = reminder.outcome === 'completed' || reminder.outcome === 'unknown'

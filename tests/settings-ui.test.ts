@@ -80,16 +80,16 @@ describe('settings option interaction', () => {
     await act(async () => errorVoice('option.sound.arcade').click())
     expect(notifier.preview).toHaveBeenLastCalledWith('arcade')
     expect(scope.getSnapshot().value?.errorSoundPreset).toBe('arcade')
-    await act(async () => errorVoice('option.sound.none').click())
-    expect(notifier.preview).toHaveBeenLastCalledWith('none')
-    expect(scope.getSnapshot().value?.errorSoundPreset).toBe('none')
+    await act(async () => errorVoice('option.sound.drop').click())
+    expect(notifier.preview).toHaveBeenLastCalledWith('drop')
+    expect(scope.getSnapshot().value?.errorSoundPreset).toBe('drop')
     expect(scope.getSnapshot().value).toMatchObject({ surface: 'toast', soundPreset: 'ping', onlyWhenUnfocused: false })
     expect(new BrowserSettings().getSnapshot().value).toMatchObject({ surface: 'toast', soundPreset: 'ping', onlyWhenUnfocused: false })
     for (const key of [
       'settings.intro', 'settings.selectionHint', 'settings.hostStorage', 'settings.browserStorage',
       'settings.footer', 'settings.reset', 'settings.resetAll', 'settings.resetAllHint', 'settings.overridden',
       'settings.section.scope', 'settings.section.surface', 'settings.section.behaviour', 'settings.saving',
-      ...['enabled', 'includeSubagents', 'muteAll', 'notifyOn', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'minTurnSeconds', 'autoDismissSeconds'].map(field => `field.${field}.label`),
+      ...['enabled', 'includeSubagents', 'muteAll', 'notifyOn', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'minTurnSeconds'].map(field => `field.${field}.label`),
     ]) {
       expect(container.textContent).not.toContain(key)
     }
@@ -98,16 +98,40 @@ describe('settings option interaction', () => {
     for (const field of ['systemNotification', 'flashTitle', 'soundPreset', 'errorSoundPreset']) {
       expect(container.textContent).toContain(`field.${field}.label`)
     }
-    // The surface vocabulary is one-of: the retired "both" option is gone and
-    // each tone row carries its own seven-voice chips directly after the label.
+    // The surface vocabulary is one-of: the retired "both" option is gone, and
+    // each tone row carries its own six audible voices, directly after the label.
     expect(option('option.surface.both')).toBeUndefined()
     expect(container.textContent).not.toContain('option.surface.both')
+    expect(container.textContent).not.toContain('option.sound.none')
     const soundRow = container.querySelector('#yt-field-soundPreset')!
-    expect(soundRow.querySelectorAll('button')).toHaveLength(7)
+    expect(soundRow.querySelectorAll('button')).toHaveLength(6)
+    expect([...soundRow.querySelectorAll('button')].map(button => button.textContent)).toEqual([
+      'option.sound.chime', 'option.sound.ping', 'option.sound.marimba',
+      'option.sound.arcade', 'option.sound.drop', 'option.sound.alert',
+    ])
     expect([...soundRow.querySelectorAll('button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent).toBe('option.sound.ping')
-    for (const field of ['enabled', 'includeSubagents', 'muteAll', 'notifyOn', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'minTurnSeconds', 'autoDismissSeconds']) {
+    // The tone rows must not stack into two lines: the chips never wrap.
+    expect(container.querySelector('.yt-row[data-control="chips"]')).not.toBeNull()
+    for (const field of ['enabled', 'includeSubagents', 'muteAll', 'notifyOn', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'minTurnSeconds']) {
       expect(container.querySelector(`label[for="yt-field-${field}"]`)).toBeNull()
     }
+    // The auto-dismiss delay is a live field again: a numeric row that applies
+    // in-range values immediately and refuses out-of-range drafts.
+    const delay = container.querySelector<HTMLInputElement>('#yt-field-autoDismissSeconds')!
+    const setInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+    expect(delay.placeholder).toBe('5')
+    expect(delay.value).toBe('5')
+    await act(async () => {
+      setInput.call(delay, '30')
+      delay.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(scope.getSnapshot().value?.autoDismissSeconds).toBe(30)
+    await act(async () => {
+      setInput.call(delay, '700')
+      delay.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(container.textContent).toContain('settings.invalid')
+    expect(scope.getSnapshot().value?.autoDismissSeconds).toBe(30)
     expect(model.view.getSnapshot().fields.surface?.overridden).toBe(true)
     expect(container.querySelector('.yt-row__reset, .yt-row__badges, .yt-settings__actions')).toBeNull()
     expect([...container.querySelectorAll('h3')].map(heading => heading.textContent)).toEqual([
@@ -135,8 +159,11 @@ describe('settings option interaction', () => {
   })
 })
 
-describe('persistent reminder surfaces', () => {
-  it.each(['modal', 'toast'] as const)('keeps %s reminders visible until manual processing', async (surface) => {
+describe('reminder surfaces', () => {
+  // The component owns no clock: it renders the queue the notifier publishes,
+  // and the notifier's auto-dismiss timer is what removes entries over time.
+  // This test drives the queue by hand and checks the actions reach the queue.
+  it.each(['modal', 'toast'] as const)('renders the %s queue head and routes its actions', async (surface) => {
     vi.useFakeTimers()
     const first = { id: 'first', sessionId: 'session-a', title: 'First session', cwd: undefined, outcome: 'completed' as const, turn: undefined, durationMs: 1, raisedAt: 0, snoozed: false }
     const second = { ...first, id: 'second', sessionId: 'session-b', title: 'Second session' }
@@ -147,8 +174,6 @@ describe('persistent reminder surfaces', () => {
     const container = document.createElement('div'); document.body.append(container); root = createRoot(container)
     await act(async () => root!.render(createElement(ReminderSurface, { notifier, openSession, t: ((key: string) => key) as any })))
     const visible = (): Element | null => container.querySelector(surface === 'modal' ? '[data-modal]' : '.yt-banner')
-    expect(visible()?.textContent).toContain('First session')
-    await act(async () => vi.advanceTimersByTime(24 * 60 * 60_000))
     expect(visible()?.textContent).toContain('First session')
     expect(dismiss).not.toHaveBeenCalled()
     const jumpKey = surface === 'modal' ? 'action.jump' : 'toast.jump'

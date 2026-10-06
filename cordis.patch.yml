@@ -13,6 +13,7 @@
       name: 'dsh-your-turn'
       config:
         surface: modal
+        autoDismissSeconds: 5
         soundEnabled: true
         soundPreset: chime
         errorSoundPreset: alert

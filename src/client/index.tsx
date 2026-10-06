@@ -19,6 +19,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -31,6 +32,7 @@ import { ReminderSurface } from './PopupOverlay.tsx'
 import { SettingsController } from './settings.ts'
 import { SettingsPage } from './SettingsPage.tsx'
 import { SoundEngine } from './sound.ts'
+import { SoundToggle } from './SoundToggle.tsx'
 import { installStyles } from './styles.ts'
 import { watchTurns } from './turnWatcher.ts'
 import { watchQuestions } from './questionWatcher.ts'
@@ -53,6 +55,19 @@ const SETTINGS_SECTION_ID = 'your-turn'
 
 /** Slot id of the reminder overlay entry. */
 const OVERLAY_ID = 'dsh-your-turn'
+
+/** Slot id of the sound switch in the sidebar foot. */
+const SOUND_TOGGLE_ID = 'dsh-your-turn/sound'
+
+/**
+ * The sidebar foot seat: declared by `@deepseek-ai/dsh-client-ui-sidebar` (its
+ * type-only import above brings the declaration in), shared by the shipped
+ * settings trigger and the remote-web-ui phone trigger. It is not a hard client
+ * edge in `package.json`: `slots.inject` waits for the declaration at runtime,
+ * so a reduced composition without that sidebar simply never runs the callback
+ * and the switch is absent rather than blocking the plugin.
+ */
+const FOOTER_SEAT = 'sidebar.footer.action'
 
 /**
  * Client plugin body.
@@ -132,6 +147,22 @@ export function apply(ctx: Context): void {
         inject: () => ({ form: actions, view, notifier }),
       },
       SettingsPage,
+    ),
+  )
+
+  // 6. The always-available sound switch, in the sidebar foot beside the
+  //    remote-control phone. It rides on the settings model's own face, so the
+  //    foot switch and the settings row are one state.
+  ctx.slots.inject(FOOTER_SEAT, () =>
+    ctx.slots.register(
+      {
+        name: FOOTER_SEAT,
+        id: SOUND_TOGGLE_ID,
+        order: 10,
+        locale: NS,
+        inject: () => ({ form: actions, view, notifier }),
+      },
+      SoundToggle,
     ),
   )
 }

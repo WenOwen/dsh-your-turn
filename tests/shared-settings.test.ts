@@ -47,8 +47,16 @@ describe('normalizeConfig', () => {
     expect(normalizeConfig({ volume: 900 }).volume).toBe(LIMITS.volume.max)
     expect(normalizeConfig({ volume: -5 }).volume).toBe(LIMITS.volume.min)
     expect(normalizeConfig({ volume: 33.7 }).volume).toBe(34)
-    expect(normalizeConfig({ autoDismissSeconds: 1 })).not.toHaveProperty('autoDismissSeconds')
     expect(normalizeConfig({ minTurnSeconds: 3600 })).not.toHaveProperty('minTurnSeconds')
+  })
+
+  it('bounds the auto-dismiss delay, with 0 meaning "stay until closed"', () => {
+    expect(normalizeConfig(undefined).autoDismissSeconds).toBe(5)
+    expect(normalizeConfig({ autoDismissSeconds: 0 }).autoDismissSeconds).toBe(0)
+    expect(normalizeConfig({ autoDismissSeconds: 601 }).autoDismissSeconds).toBe(600)
+    expect(normalizeConfig({ autoDismissSeconds: -3 }).autoDismissSeconds).toBe(0)
+    expect(normalizeConfig({ autoDismissSeconds: 33.7 }).autoDismissSeconds).toBe(34)
+    expect(normalizeConfig({ autoDismissSeconds: 'never' }).autoDismissSeconds).toBe(5)
   })
 
   it('ignores non-boolean and non-numeric payloads', () => {
@@ -61,10 +69,17 @@ describe('normalizeConfig', () => {
   })
 
   it('accepts every shipped preset, including the failure voice', () => {
-    for (const preset of ['chime', 'ping', 'marimba', 'arcade', 'drop', 'alert', 'none']) {
+    for (const preset of ['chime', 'ping', 'marimba', 'arcade', 'drop', 'alert']) {
       expect(normalizeConfig({ soundPreset: preset }).soundPreset).toBe(preset)
       expect(normalizeConfig({ errorSoundPreset: preset }).errorSoundPreset).toBe(preset)
     }
+  })
+
+  it('folds the retired silent voice back onto each field default', () => {
+    // Silence lives in the sound switch now, so `none` is an unknown value: the
+    // success row falls back to the default voice, the failure row to its own.
+    expect(normalizeConfig({ soundPreset: 'none' }).soundPreset).toBe(CONFIG_DEFAULTS.soundPreset)
+    expect(normalizeConfig({ errorSoundPreset: 'none' }).errorSoundPreset).toBe(CONFIG_DEFAULTS.errorSoundPreset)
   })
 
   it('ignores legacy master-switch, subagent, outcome, master-mute and quiet-hours fields', () => {

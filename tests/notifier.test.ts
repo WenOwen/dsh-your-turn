@@ -106,9 +106,10 @@ function build(overrides: Partial<YourTurnConfig> = {}): {
   sound: FakeSound
   settings: ReturnType<typeof fakeSettings>
 } {
-  // The attention gate is off by default so each test states the filter it is
-  // actually about; the tests that exercise the gate opt back in.
-  const settings = fakeSettings({ onlyWhenUnfocused: false, ...overrides })
+  // The attention gate and self-dismissal are off by default so each test
+  // states the filter it is actually about; the tests that exercise the gate
+  // or the auto-dismiss timer opt back in.
+  const settings = fakeSettings({ onlyWhenUnfocused: false, autoDismissSeconds: 0, ...overrides })
   const sound = new FakeSound()
   const notifier = new Notifier(CONTEXT, settings.controller, sound as unknown as SoundEngine, () => undefined)
   return { notifier, sound, settings }
@@ -248,17 +249,53 @@ describe('Notifier effects', () => {
     notifier.dispose()
   })
 
-  it('ignores a legacy auto-dismiss delay and keeps the reminder until manual dismissal', () => {
-    const { notifier } = build(normalizeConfig({ autoDismissSeconds: 1, onlyWhenUnfocused: false }))
+  it('dismisses a reminder by itself after the configured delay', () => {
+    const { notifier } = build({ autoDismissSeconds: 5 })
     notifier.consider(record())
-    vi.advanceTimersByTime(24 * 60 * 60_000)
+    vi.advanceTimersByTime(4_999)
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
-    notifier.dismiss(notifier.state.getSnapshot().reminders[0]!.id)
+    vi.advanceTimersByTime(1)
     expect(notifier.state.getSnapshot().reminders).toEqual([])
     notifier.dispose()
   })
 
-  it('keeps a reminder indefinitely with default settings', () => {
+  it('clocks each queued reminder from its own raise', () => {
+    const { notifier } = build({ autoDismissSeconds: 5 })
+    notifier.consider(record())
+    vi.advanceTimersByTime(2_000)
+    notifier.consider(record({ sessionId: 'b', endedAt: 20_000 }))
+    vi.advanceTimersByTime(3_000)
+    // Five seconds in, the first reminder is gone; the second has two left.
+    expect(notifier.state.getSnapshot().reminders.map((r) => r.sessionId)).toEqual(['b'])
+    vi.advanceTimersByTime(2_000)
+    expect(notifier.state.getSnapshot().reminders).toEqual([])
+    notifier.dispose()
+  })
+
+  it('keeps a reminder when auto-dismiss is turned off while it is up', () => {
+    const { notifier, settings } = build({ autoDismissSeconds: 2 })
+    notifier.consider(record())
+    settings.snapshot.set({
+      ...settings.snapshot.getSnapshot(),
+      config: normalizeConfig({ onlyWhenUnfocused: false, autoDismissSeconds: 0 }),
+    })
+    vi.advanceTimersByTime(10_000)
+    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    notifier.dispose()
+  })
+
+  it('a snoozed reminder self-dismisses from its re-raise', () => {
+    const { notifier } = build({ autoDismissSeconds: 5 })
+    notifier.consider(record())
+    notifier.snooze(notifier.state.getSnapshot().reminders[0]!.id)
+    vi.advanceTimersByTime(5 * 60_000)
+    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    vi.advanceTimersByTime(5_000)
+    expect(notifier.state.getSnapshot().reminders).toEqual([])
+    notifier.dispose()
+  })
+
+  it('keeps a reminder indefinitely when auto-dismiss is off', () => {
     const { notifier } = build()
     notifier.consider(record())
     vi.advanceTimersByTime(10 * 60_000)

@@ -18,13 +18,22 @@ ships no audio files at all.
   backdrop close, the turn's outcome, the session title, its directory, the turn
   duration, and three buttons: **Open session**, **Remind me in 5 minutes**,
   **Got it**. A lightweight top banner is available instead of the popup.
-- **Plays a chime.** Six voices plus silence — a two-partial bell, a short ping, a
-  wooden marimba, a rising arcade arpeggio, a falling drop, and a tri-tone for
+- **Plays a chime.** Six voices — a two-partial bell, a short ping, a wooden
+  marimba, a rising arcade arpeggio, a falling drop, and a tri-tone for
   failures — plus independent success and failure voices and a volume control.
+  Silence is the sound switch, not a seventh voice.
+- **Silences in one click.** A small speaker icon sits in the sidebar's foot,
+  right beside the remote-web-ui phone: click it to mute (the glyph turns into a
+  slashed speaker), click again to bring the chime back, which also previews the
+  configured voice. It writes the very same `soundEnabled` field the settings
+  page shows, so the two can never disagree; the reminder itself still appears
+  while muted.
 - **Reminds for every ending.** Completed, failed, aborted, limited, and unknown
   outcomes all qualify, regardless of turn length. The background-only option still
   controls when reminders appear; subagent sessions never raise reminders or question chimes.
-- **Waits for you.** Popups and banners stay until manually dismissed or opened; no automatic expiry.
+- **Dismisses itself on a clock.** Popups and banners close five seconds after
+  they appear, configurable per deployment (0 keeps them until you close them);
+  snoozing starts a fresh clock on the re-raise.
 - **Coordinates open windows.** Three tabs on the same origin raise one reminder,
   not three, and closing it in one closes it everywhere.
 - **Remembers what matters.** Pushed-back reminders survive a reload; every policy
@@ -115,16 +124,17 @@ No credentials, tokens, or network calls of any kind are involved.
 
 ## Settings
 
-The settings page renders exactly these eight rows, in this order. The first four
+The settings page renders exactly these nine rows, in this order. The first five
 carry no group heading; the last four sit under **Chime**.
 
 | Settings page | Field | Default | Meaning |
 | --- | --- | --- | --- |
 | Reminder timing | `onlyWhenUnfocused` | `true` | Stay silent while the window is focused and the tab visible. |
 | Reminder surface | `surface` | `modal` | `modal` or `toast`; a retired `both` resolves to `modal`. |
+| Auto-dismiss (seconds) | `autoDismissSeconds` | `5` | The reminder closes itself after this long; `0` keeps it until you close it. |
 | Flash the tab title | `flashTitle` | `false` | Alternate a marker in the tab title until the window regains focus. |
 | Also send a system notification | `systemNotification` | `false` | Mirror into a system notification while the page is hidden. |
-| Play a chime | `soundEnabled` | `true` | Play a chime at all. |
+| Play a chime | `soundEnabled` | `true` | Play a chime at all; the sidebar-foot speaker icon toggles this same field. |
 | Success response | `soundPreset` | `chime` | Voice for a clean handoff. |
 | Failure response | `errorSoundPreset` | `alert` | Voice for a failed, aborted, or truncated turn. |
 | Volume | `volume` | `70` | 0–100. |

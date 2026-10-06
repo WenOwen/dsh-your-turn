@@ -131,7 +131,7 @@ function Row({
   const label = t(row.labelKey)
   const id = `yt-field-${row.field}`
   return (
-    <div className="yt-row">
+    <div className="yt-row" data-control={row.control.kind}>
       <div className="yt-row__label">
         <label htmlFor={id}>{label}</label>
         {draft.invalid && (

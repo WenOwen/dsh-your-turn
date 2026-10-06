@@ -40,12 +40,17 @@ export type NotifyOn = (typeof NOTIFY_ON)[number]
 export const TURN_OUTCOMES = ['completed', 'failed', 'aborted', 'limited', 'unknown'] as const
 export type TurnOutcome = (typeof TURN_OUTCOMES)[number]
 
-/** Built-in chime voices, all synthesized at runtime (no shipped audio assets). */
-export const SOUND_PRESETS = ['chime', 'ping', 'marimba', 'arcade', 'drop', 'alert', 'none'] as const
+/**
+ * Built-in chime voices, all synthesized at runtime (no shipped audio assets).
+ *
+ * Every member is audible: the vocabulary used to carry a silent `none` voice,
+ * but silence already has a home — the `soundEnabled` switch and the sidebar
+ * foot toggle. A settings document that still asks for `none` is an unknown
+ * value now, so it falls back to that field's default like any other stale
+ * vocabulary value.
+ */
+export const SOUND_PRESETS = ['chime', 'ping', 'marimba', 'arcade', 'drop', 'alert'] as const
 export type SoundPreset = (typeof SOUND_PRESETS)[number]
-
-/** Voices that actually produce sound. */
-export type PlayableSoundPreset = Exclude<SoundPreset, 'none'>
 
 /** Fallback voice used when a configured voice is unknown to this build. */
 export const FALLBACK_SOUND_PRESET: SoundPreset = 'chime'
@@ -54,6 +59,8 @@ export const FALLBACK_SOUND_PRESET: SoundPreset = 'chime'
 export interface YourTurnConfig {
   /** Reminder surface: the centred modal or the top banner. */
   surface: Surface
+  /** Seconds before a reminder dismisses itself; 0 keeps it until you close it. */
+  autoDismissSeconds: number
   /** Play a chime when a reminder is raised. */
   soundEnabled: boolean
   /** Voice used for successful turn ends. */
@@ -73,6 +80,7 @@ export interface YourTurnConfig {
 /** Compiled-in defaults; the Host schema and the browser fallback both read these. */
 export const CONFIG_DEFAULTS: Readonly<YourTurnConfig> = Object.freeze({
   surface: 'modal',
+  autoDismissSeconds: 5,
   soundEnabled: true,
   soundPreset: 'chime',
   errorSoundPreset: 'alert',
@@ -91,6 +99,7 @@ export function clamp(value: number, min: number, max: number): number {
 /** Hard bounds; the Host schema and the browser normalizer must agree on these. */
 export const LIMITS = Object.freeze({
   volume: { min: 0, max: 100 },
+  autoDismissSeconds: { min: 0, max: 600 },
 })
 
 function oneOf<T extends string>(options: readonly T[], fallback: T, value: unknown): T {
@@ -131,6 +140,11 @@ export function normalizeConfig(input: unknown): YourTurnConfig {
   const raw = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>
   return {
     surface: oneOf(SURFACES, CONFIG_DEFAULTS.surface, raw.surface),
+    autoDismissSeconds: clamp(
+      typeof raw.autoDismissSeconds === 'number' ? raw.autoDismissSeconds : CONFIG_DEFAULTS.autoDismissSeconds,
+      LIMITS.autoDismissSeconds.min,
+      LIMITS.autoDismissSeconds.max,
+    ),
     soundEnabled: bool(raw.soundEnabled, CONFIG_DEFAULTS.soundEnabled),
     soundPreset: oneOf(SOUND_PRESETS, CONFIG_DEFAULTS.soundPreset, raw.soundPreset),
     errorSoundPreset: oneOf(SOUND_PRESETS, CONFIG_DEFAULTS.errorSoundPreset, raw.errorSoundPreset),

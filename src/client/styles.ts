@@ -61,6 +61,83 @@ export const CSS = `
   gap: 8px;
 }
 
+/*
+ * The sound switch in the sidebar's foot seat (sidebar.footer.action, owned
+ * by ui-sidebar, shared with the remote-web-ui phone trigger). The seat's owner
+ * positions the row, so this only carries the family geometry the seat expects:
+ * a 36px transparent circle in the rail, a growing full-row pill when the
+ * column is wide, and the same hover/active/focus tokens the phone trigger
+ * uses — no literal colors, so light and dark both come from the theme.
+ */
+[data-plugin="dsh-your-turn"].yt-sound {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+[data-plugin="dsh-your-turn"].yt-sound[data-rail='rail'] {
+  flex-direction: column-reverse;
+  gap: 4px;
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__trigger {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 36px;
+  block-size: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__trigger[data-wide='wide'] {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  inline-size: auto;
+  min-inline-size: 0;
+  border-radius: 999px;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__trigger:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__trigger:active:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--dsw-alias-bg-layer-2), 0 0 0 4px var(--dsw-alias-brand-primary);
+}
+
+/* Muted reads as "off" — the glyph changes and the color recedes with it. */
+[data-plugin="dsh-your-turn"].yt-sound[data-state='muted'] .yt-sound__trigger:not(:hover) {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__glyph {
+  flex: none;
+  display: block;
+}
+
 /* ── The reminder in the centred popup ─────────────────────────────────── */
 
 [data-plugin="dsh-your-turn"].yt-reminder {
@@ -235,11 +312,31 @@ export const CSS = `
   min-width: 0;
 }
 
+/*
+ * Chip rows keep every option on one line: the six-voice vocabularies are meant
+ * to be read at a glance, so the control column drops its width cap and the
+ * chips never wrap. A panel too narrow to hold them scrolls the row instead of
+ * stacking it into a second line.
+ */
+[data-plugin="dsh-your-turn"] .yt-row[data-control="chips"] .yt-row__control {
+  max-inline-size: none;
+}
+
 [data-plugin="dsh-your-turn"] .yt-row__chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+[data-plugin="dsh-your-turn"] .yt-row__chips::-webkit-scrollbar { display: none; }
+
+[data-plugin="dsh-your-turn"] .yt-row__chip {
+  flex: none;
+  padding-inline: 9px;
 }
 
 [data-plugin="dsh-your-turn"] .yt-row__chip[aria-pressed="true"] {

@@ -32,12 +32,12 @@ describe('browser-local remote settings', () => {
     const raw = {
       muteAll: true, notifyOn: 'success', quietHoursEnabled: true,
       quietHoursStart: '11:00', quietHoursEnd: '13:00', volume: 35,
-      minTurnSeconds: 3600, autoDismissSeconds: 1, enabled: false, includeSubagents: true,
+      minTurnSeconds: 3600, enabled: false, includeSubagents: true,
     }
     localStorage.setItem(BROWSER_SETTINGS_KEY, JSON.stringify(raw))
     const form = new BrowserSettings()
     expect(form.getSnapshot().value).toEqual(normalizeConfig(raw))
-    for (const field of ['enabled', 'includeSubagents', 'muteAll', 'notifyOn', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'minTurnSeconds', 'autoDismissSeconds']) {
+    for (const field of ['enabled', 'includeSubagents', 'muteAll', 'notifyOn', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'minTurnSeconds']) {
       expect(form.getSnapshot().value).not.toHaveProperty(field)
       expect(await form.set(field, raw[field as keyof typeof raw])).toBe(false)
     }

@@ -10,13 +10,23 @@ import { Context } from "@deepseek-ai/cordis";
  */
 declare const SURFACES: readonly ["modal", "toast"];
 type Surface = (typeof SURFACES)[number];
-/** Built-in chime voices, all synthesized at runtime (no shipped audio assets). */
-declare const SOUND_PRESETS: readonly ["chime", "ping", "marimba", "arcade", "drop", "alert", "none"];
+/**
+ * Built-in chime voices, all synthesized at runtime (no shipped audio assets).
+ *
+ * Every member is audible: the vocabulary used to carry a silent `none` voice,
+ * but silence already has a home — the `soundEnabled` switch and the sidebar
+ * foot toggle. A settings document that still asks for `none` is an unknown
+ * value now, so it falls back to that field's default like any other stale
+ * vocabulary value.
+ */
+declare const SOUND_PRESETS: readonly ["chime", "ping", "marimba", "arcade", "drop", "alert"];
 type SoundPreset = (typeof SOUND_PRESETS)[number];
 /** The user-editable configuration surface. Field names are settings paths. */
 interface YourTurnConfig {
   /** Reminder surface: the centred modal or the top banner. */
   surface: Surface;
+  /** Seconds before a reminder dismisses itself; 0 keeps it until you close it. */
+  autoDismissSeconds: number;
   /** Play a chime when a reminder is raised. */
   soundEnabled: boolean;
   /** Voice used for successful turn ends. */
@@ -58,18 +68,20 @@ interface Config extends YourTurnConfig {}
  */
 declare const Config: Schema<Schemastery.ObjectS<NoInfer<{
   surface: Schema<"modal" | "toast", "modal" | "toast", "volatile-defined">;
+  autoDismissSeconds: Schema<number, number, "volatile-defined">;
   soundEnabled: Schema<boolean, boolean, "volatile-defined">;
-  soundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert" | "none", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert" | "none", "volatile-defined">;
-  errorSoundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert" | "none", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert" | "none", "volatile-defined">;
+  soundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "volatile-defined">;
+  errorSoundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "volatile-defined">;
   volume: Schema<number, number, "volatile-defined">;
   onlyWhenUnfocused: Schema<boolean, boolean, "volatile-defined">;
   systemNotification: Schema<boolean, boolean, "volatile-defined">;
   flashTitle: Schema<boolean, boolean, "volatile-defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
   surface: Schema<"modal" | "toast", "modal" | "toast", "volatile-defined">;
+  autoDismissSeconds: Schema<number, number, "volatile-defined">;
   soundEnabled: Schema<boolean, boolean, "volatile-defined">;
-  soundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert" | "none", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert" | "none", "volatile-defined">;
-  errorSoundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert" | "none", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert" | "none", "volatile-defined">;
+  soundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "volatile-defined">;
+  errorSoundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "volatile-defined">;
   volume: Schema<number, number, "volatile-defined">;
   onlyWhenUnfocused: Schema<boolean, boolean, "volatile-defined">;
   systemNotification: Schema<boolean, boolean, "volatile-defined">;

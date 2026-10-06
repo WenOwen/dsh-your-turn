@@ -11,7 +11,7 @@
  * @module dsh-your-turn/client/sound
  */
 
-import type { PlayableSoundPreset, SoundPreset } from '../shared/settings.ts'
+import type { SoundPreset } from '../shared/settings.ts'
 import { FALLBACK_SOUND_PRESET, SOUND_PRESETS } from '../shared/settings.ts'
 
 /** One scheduled tone. */
@@ -30,7 +30,7 @@ interface Tone {
   gain: number
 }
 
-const VOICES: Record<PlayableSoundPreset, readonly Tone[]> = {
+const VOICES: Record<SoundPreset, readonly Tone[]> = {
   // A soft two-partial bell: root plus a fifth, long exponential tail.
   chime: [
     { freq: 880, type: 'sine', at: 0, dur: 1.1, gain: 0.5 },
@@ -77,7 +77,7 @@ type AudioContextCtor = new () => AudioContextLike
 /**
  * Narrow a raw preset string to a voice this build knows.
  * @param value - configured preset value.
- * @returns a playable preset, or `none`.
+ * @returns a playable preset, or the fallback voice.
  */
 export function resolvePreset(value: unknown): SoundPreset {
   if (typeof value === 'string' && (SOUND_PRESETS as readonly string[]).includes(value)) {
@@ -127,11 +127,11 @@ export class SoundEngine {
 
   /**
    * Play one voice.
-   * @param preset - configured voice; `none` or an unknown value plays nothing.
+   * @param preset - configured voice; an unknown value plays nothing.
    * @param volume - 0-100, applied on top of the per-voice gain.
    */
   play(preset: SoundPreset, volume: number): void {
-    if (preset === 'none' || volume <= 0) return
+    if (volume <= 0) return
     const context = this.ensureContext()
     if (context === undefined || this.master === undefined) return
     // Writing the gain once per playback keeps the slider live without a

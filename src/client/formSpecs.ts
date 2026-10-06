@@ -25,6 +25,7 @@ const SOUND_LABELS = SOUND_PRESETS.map(value => ({ value, labelKey: `option.soun
 
 export const FIELD_SPECS: readonly SettingsFieldSpec[] = [
   enumField('surface', SURFACES),
+  intField('autoDismissSeconds', LIMITS.autoDismissSeconds.min, LIMITS.autoDismissSeconds.max),
   boolField('soundEnabled'),
   enumField('soundPreset', SOUND_PRESETS),
   enumField('errorSoundPreset', SOUND_PRESETS),
@@ -46,6 +47,7 @@ export const GROUPS: readonly GroupDescriptor[] = [
   {
     id: 'surface', rows: [
       { field: 'surface', labelKey: 'field.surface.label', control: { kind: 'chips', optionKeys: SURFACE_LABELS } },
+      { field: 'autoDismissSeconds', labelKey: 'field.autoDismissSeconds.label', control: { kind: 'number', placeholder: '5' } },
       { field: 'flashTitle', labelKey: 'field.flashTitle.label', control: { kind: 'switch' } },
       { field: 'systemNotification', labelKey: 'field.systemNotification.label', control: { kind: 'switch' } },
     ],

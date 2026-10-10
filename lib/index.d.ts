@@ -35,12 +35,6 @@ interface YourTurnConfig {
   errorSoundPreset: SoundPreset;
   /** Playback volume, 0-100. */
   volume: number;
-  /** Only remind while the window is unfocused or the tab is hidden. */
-  onlyWhenUnfocused: boolean;
-  /** Mirror the reminder into a system notification when the page may use one. */
-  systemNotification: boolean;
-  /** Flash the document title until the page regains focus. */
-  flashTitle: boolean;
 }
 //#endregion
 //#region src/index.d.ts
@@ -73,9 +67,6 @@ declare const Config: Schema<Schemastery.ObjectS<NoInfer<{
   soundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "volatile-defined">;
   errorSoundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "volatile-defined">;
   volume: Schema<number, number, "volatile-defined">;
-  onlyWhenUnfocused: Schema<boolean, boolean, "volatile-defined">;
-  systemNotification: Schema<boolean, boolean, "volatile-defined">;
-  flashTitle: Schema<boolean, boolean, "volatile-defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
   surface: Schema<"modal" | "toast", "modal" | "toast", "volatile-defined">;
   autoDismissSeconds: Schema<number, number, "volatile-defined">;
@@ -83,9 +74,6 @@ declare const Config: Schema<Schemastery.ObjectS<NoInfer<{
   soundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "volatile-defined">;
   errorSoundPreset: Schema<"chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "chime" | "ping" | "marimba" | "arcade" | "drop" | "alert", "volatile-defined">;
   volume: Schema<number, number, "volatile-defined">;
-  onlyWhenUnfocused: Schema<boolean, boolean, "volatile-defined">;
-  systemNotification: Schema<boolean, boolean, "volatile-defined">;
-  flashTitle: Schema<boolean, boolean, "volatile-defined">;
 }>>, "plain">;
 /**
  * Host plugin body.

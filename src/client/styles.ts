@@ -138,6 +138,143 @@ export const CSS = `
   display: block;
 }
 
+/*
+ * The unread badge: a small numeric chip parked on the top-right of the
+ * speaker. Visible only while at least one reminder is still pending (raised
+ * turn the user has not yet looked at). The hover tooltip is the next block
+ * and is what actually lists the session titles.
+ */
+[data-plugin="dsh-your-turn"] .yt-sound__badge {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-end: 2px;
+  min-inline-size: 16px;
+  block-size: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--dsw-alias-state-error-primary, var(--dsw-alias-link));
+  color: var(--dsw-alias-label-on-color, #fff);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+  transform-origin: center;
+  animation: yt-sound-badge-pulse 2.4s ease-in-out infinite;
+}
+@keyframes yt-sound-badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-plugin="dsh-your-turn"] .yt-sound__badge { animation: none; }
+}
+
+/*
+ * The pending list that appears when the user hovers or focuses the speaker.
+ * Anchored above the icon in the rail and wide enough to read a session title.
+ * Pure CSS reveal (no JS event handlers), so it inherits the seat's own focus
+ * behaviour and never steals pointer or keyboard focus from the toggle.
+ */
+[data-plugin="dsh-your-turn"] .yt-sound__pending {
+  position: absolute;
+  inset-block-end: calc(100% + 8px);
+  inset-inline-start: 0;
+  min-inline-size: 200px;
+  max-inline-size: 280px;
+  max-block-size: 240px;
+  overflow-y: auto;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--yt-radius);
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-elevation-prominent);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+  z-index: 1;
+}
+[data-plugin="dsh-your-turn"].yt-sound[data-rail='rail'] .yt-sound__pending {
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+}
+[data-plugin="dsh-your-turn"].yt-sound:hover .yt-sound__pending,
+[data-plugin="dsh-your-turn"].yt-sound:focus-within .yt-sound__pending {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-plugin="dsh-your-turn"] .yt-sound__pending { transition: none; }
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__pendingTitle {
+  margin: 0 0 6px;
+  padding: 0 6px;
+  font-size: 0.75em;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__pendingList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__pendingItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 0.8125em;
+  line-height: 1.4;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+[data-plugin="dsh-your-turn"] .yt-sound__pendingItem:hover,
+[data-plugin="dsh-your-turn"] .yt-sound__pendingItem:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover);
+  outline: none;
+}
+
+[data-plugin="dsh-your-turn"] .yt-sound__pendingDot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-idle-primary);
+}
+[data-plugin="dsh-your-turn"] .yt-sound__pendingDot[data-outcome="completed"] { background: var(--dsw-alias-state-success-primary); }
+[data-plugin="dsh-your-turn"] .yt-sound__pendingDot[data-outcome="failed"] { background: var(--dsw-alias-state-error-primary); }
+[data-plugin="dsh-your-turn"] .yt-sound__pendingDot[data-outcome="aborted"] { background: var(--dsw-alias-state-warn-primary); }
+[data-plugin="dsh-your-turn"] .yt-sound__pendingDot[data-outcome="limited"] { background: var(--dsw-alias-state-warn-primary); }
+
+[data-plugin="dsh-your-turn"] .yt-sound__pendingName {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── The reminder in the centred popup ─────────────────────────────────── */
 
 [data-plugin="dsh-your-turn"].yt-reminder {
@@ -402,6 +539,39 @@ export const CSS = `
 [data-plugin="dsh-your-turn"] .yt-row__input {
   inline-size: 7em;
   text-align: end;
+}
+
+/*
+ * The preset/auto-dismiss control: a dropdown next to an optional number
+ * input. The two share a row that flexes; the number input is removed from
+ * layout when the dropdown is on a preset.
+ */
+[data-plugin="dsh-your-turn"] .yt-row__select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+}
+[data-plugin="dsh-your-turn"] .yt-row__selectInput {
+  flex: 0 0 auto;
+  inline-size: 9.5em;
+  padding: 4px 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-sm, 6px);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 0.875em;
+  line-height: 1.5;
+  cursor: pointer;
+}
+[data-plugin="dsh-your-turn"] .yt-row__selectInput:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: 2px;
+}
+[data-plugin="dsh-your-turn"] .yt-row__selectInput:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 [data-plugin="dsh-your-turn"] .yt-row__text {

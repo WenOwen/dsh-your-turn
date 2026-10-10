@@ -39,6 +39,8 @@ export interface SoundToggleInjected {
   view: SnapshotSource<SettingsFormView>
   /** Used to play the success voice back when sound is turned on. */
   notifier: Notifier
+  /** Navigate the Workspace to the given session id; the popup uses the same hook. */
+  openSession: (sessionId: string) => void
 }
 
 /**
@@ -60,22 +62,27 @@ const ROOT_ATTR = { 'data-plugin': 'dsh-your-turn' } as const
  * @param props - seat column state, injected form face, view, notifier and `t`.
  * @returns one footer row, or nothing while the settings form is unavailable.
  */
-export function SoundToggle({ t, form, view, notifier, wide }: SoundToggleProps): ReactNode {
+export function SoundToggle({ t, form, view, notifier, openSession, wide }: SoundToggleProps): ReactNode {
   const state = useSnapshot(view)
+  const notifierState = useSnapshot(notifier.state)
   const field = state.fields.soundEnabled
   if (field === undefined) return null
 
   const on = field.text === 'true'
   const disabled = !state.shell.writable
   const action = t(on ? 'sound.toggle.mute' : 'sound.toggle.unmute')
+  const pending = notifierState.reminders
+  const pendingCount = pending.length
+  const tooltipId = pendingCount > 0 ? 'yt-sound-pending' : undefined
   return (
-    <div className="dshYourTurn yt-sound" {...ROOT_ATTR} data-rail={wide ? undefined : 'rail'} data-state={on ? 'on' : 'muted'}>
+    <div className="dshYourTurn yt-sound" {...ROOT_ATTR} data-rail={wide ? undefined : 'rail'} data-state={on ? 'on' : 'muted'} data-pending={pendingCount > 0 ? 'true' : undefined}>
       <button
         type="button"
         className="yt-sound__trigger"
         data-wide={wide ? 'wide' : 'rail'}
         aria-pressed={on}
         aria-label={t('sound.toggle.label')}
+        aria-describedby={tooltipId}
         title={action}
         disabled={disabled}
         onClick={() => {
@@ -87,7 +94,35 @@ export function SoundToggle({ t, form, view, notifier, wide }: SoundToggleProps)
         }}
       >
         <SpeakerIcon muted={!on} size={wide ? 16 : 18} />
+        {pendingCount > 0 ? (
+          <span className="yt-sound__badge" aria-hidden="true">{pendingCount > 9 ? '9+' : pendingCount}</span>
+        ) : null}
       </button>
+      {pendingCount > 0 ? (
+        <div id={tooltipId} className="yt-sound__pending" role="tooltip" data-rail={wide ? undefined : 'rail'}>
+          <p className="yt-sound__pendingTitle">
+            {pendingCount === 1 ? t('sound.pending.one') : t('sound.pending.many', { count: pendingCount })}
+          </p>
+          <ul className="yt-sound__pendingList">
+            {pending.map(reminder => (
+              <li key={reminder.id}>
+                <button
+                  type="button"
+                  className="yt-sound__pendingItem"
+                  onClick={() => {
+                    openSession(reminder.sessionId)
+                    notifier.acknowledge(reminder.id)
+                  }}
+                  title={reminder.cwd ?? reminder.sessionId}
+                >
+                  <span className="yt-sound__pendingDot" data-outcome={reminder.outcome} aria-hidden="true" />
+                  <span className="yt-sound__pendingName">{reminder.title || reminder.sessionId}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }

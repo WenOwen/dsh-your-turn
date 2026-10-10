@@ -18,3 +18,4 @@ probe-*.mjs
 # machine's ACL backups/reports. The audit reports themselves are committed.
 audit/runtime/
 audit/permissions/
+assets/readme/story.md

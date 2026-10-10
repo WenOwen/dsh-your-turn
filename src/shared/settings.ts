@@ -69,12 +69,6 @@ export interface YourTurnConfig {
   errorSoundPreset: SoundPreset
   /** Playback volume, 0-100. */
   volume: number
-  /** Only remind while the window is unfocused or the tab is hidden. */
-  onlyWhenUnfocused: boolean
-  /** Mirror the reminder into a system notification when the page may use one. */
-  systemNotification: boolean
-  /** Flash the document title until the page regains focus. */
-  flashTitle: boolean
 }
 
 /** Compiled-in defaults; the Host schema and the browser fallback both read these. */
@@ -85,9 +79,6 @@ export const CONFIG_DEFAULTS: Readonly<YourTurnConfig> = Object.freeze({
   soundPreset: 'chime',
   errorSoundPreset: 'alert',
   volume: 70,
-  onlyWhenUnfocused: true,
-  systemNotification: false,
-  flashTitle: false,
 })
 
 /** Clamp helper shared by the schema bounds and the browser-side normalizer. */
@@ -153,9 +144,6 @@ export function normalizeConfig(input: unknown): YourTurnConfig {
       LIMITS.volume.min,
       LIMITS.volume.max,
     ),
-    onlyWhenUnfocused: bool(raw.onlyWhenUnfocused, CONFIG_DEFAULTS.onlyWhenUnfocused),
-    systemNotification: bool(raw.systemNotification, CONFIG_DEFAULTS.systemNotification),
-    flashTitle: bool(raw.flashTitle, CONFIG_DEFAULTS.flashTitle),
   }
 }
 

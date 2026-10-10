@@ -32,32 +32,33 @@ interface Tone {
 
 const VOICES: Record<SoundPreset, readonly Tone[]> = {
   // A soft two-partial bell: root plus a fifth, long exponential tail.
+  // Simultaneous partials peak at 0.82 — near full scale without clipping.
   chime: [
     { freq: 880, type: 'sine', at: 0, dur: 1.1, gain: 0.5 },
     { freq: 1320, type: 'sine', at: 0.02, dur: 0.85, gain: 0.24 },
     { freq: 2637, type: 'sine', at: 0, dur: 0.12, gain: 0.08 },
   ],
   // The smallest possible acknowledgement.
-  ping: [{ freq: 1180, type: 'sine', at: 0, dur: 0.18, gain: 0.5 }],
+  ping: [{ freq: 1180, type: 'sine', at: 0, dur: 0.18, gain: 0.7 }],
   // Wooden attack: a strong fundamental with a bright, fast partial.
   marimba: [
     { freq: 523.25, type: 'sine', at: 0, dur: 0.5, gain: 0.55 },
     { freq: 1046.5, type: 'sine', at: 0, dur: 0.22, gain: 0.28 },
     { freq: 1568, type: 'sine', at: 0, dur: 0.08, gain: 0.1 },
   ],
-  // Three rising square steps.
+  // Three rising square steps; square waves carry farther than their gain suggests.
   arcade: [
-    { freq: 659.25, type: 'square', at: 0, dur: 0.075, gain: 0.16 },
-    { freq: 880, type: 'square', at: 0.075, dur: 0.075, gain: 0.16 },
-    { freq: 1318.5, type: 'square', at: 0.15, dur: 0.14, gain: 0.15 },
+    { freq: 659.25, type: 'square', at: 0, dur: 0.075, gain: 0.3 },
+    { freq: 880, type: 'square', at: 0.075, dur: 0.075, gain: 0.3 },
+    { freq: 1318.5, type: 'square', at: 0.15, dur: 0.14, gain: 0.28 },
   ],
   // A downward droplet.
-  drop: [{ freq: 900, glideTo: 330, type: 'sine', at: 0, dur: 0.34, gain: 0.42 }],
+  drop: [{ freq: 900, glideTo: 330, type: 'sine', at: 0, dur: 0.34, gain: 0.65 }],
   // A tri-tone for failures: deliberately not the success shape.
   alert: [
-    { freq: 780, type: 'triangle', at: 0, dur: 0.16, gain: 0.36 },
-    { freq: 590, type: 'triangle', at: 0.17, dur: 0.16, gain: 0.36 },
-    { freq: 780, type: 'triangle', at: 0.34, dur: 0.22, gain: 0.34 },
+    { freq: 780, type: 'triangle', at: 0, dur: 0.16, gain: 0.5 },
+    { freq: 590, type: 'triangle', at: 0.17, dur: 0.16, gain: 0.5 },
+    { freq: 780, type: 'triangle', at: 0.34, dur: 0.22, gain: 0.46 },
   ],
 }
 
@@ -70,9 +71,18 @@ interface AudioContextLike {
   close(): Promise<void>
   createGain(): GainNode
   createOscillator(): OscillatorNode
+  /** Optional: every real Web Audio host has it; bare mocks may not. */
+  createDynamicsCompressor?(): DynamicsCompressorNode
 }
 
 type AudioContextCtor = new () => AudioContextLike
+
+/**
+ * Loudness staging above full scale: the master gain may reach 1.5, and a
+ * hard-knee limiter (threshold -1 dB, ratio 20) keeps simultaneous partials
+ * from clipping while the body of every voice gets clearly louder.
+ */
+const MASTER_BOOST = 1.5
 
 /**
  * Narrow a raw preset string to a voice this build knows.
@@ -135,8 +145,9 @@ export class SoundEngine {
     const context = this.ensureContext()
     if (context === undefined || this.master === undefined) return
     // Writing the gain once per playback keeps the slider live without a
-    // second state channel.
-    this.master.gain.value = Math.max(0, Math.min(100, volume)) / 100 * 0.4
+    // second state channel. The boost is safe because the graph ends in a
+    // limiter when the host offers one.
+    this.master.gain.value = Math.max(0, Math.min(100, volume)) / 100 * MASTER_BOOST
     const voice = VOICES[preset]
     if (voice === undefined) return
     if (context.state === 'suspended') {
@@ -170,7 +181,20 @@ export class SoundEngine {
       const context = new ctor()
       const master = context.createGain()
       master.gain.value = 0
-      master.connect(context.destination)
+      // Limiter at the end of the chain: the boost above full scale would
+      // otherwise clip the loudest voices (chime and marimba overlap partials).
+      const compressor = context.createDynamicsCompressor?.()
+      if (compressor === undefined) {
+        master.connect(context.destination)
+      } else {
+        compressor.threshold.value = -1
+        compressor.knee.value = 0
+        compressor.ratio.value = 20
+        compressor.attack.value = 0.001
+        compressor.release.value = 0.1
+        master.connect(compressor)
+        compressor.connect(context.destination)
+      }
       this.context = context
       this.master = master
       return context

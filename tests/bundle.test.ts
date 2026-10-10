@@ -140,12 +140,9 @@ describe('lib/index.js', () => {
     expect(Object.keys(fields).sort()).toEqual([
       'autoDismissSeconds',
       'errorSoundPreset',
-      'flashTitle',
-      'onlyWhenUnfocused',
       'soundEnabled',
       'soundPreset',
       'surface',
-      'systemNotification',
       'volume',
     ])
     for (const [field, reference] of Object.entries(fields)) {
@@ -192,6 +189,7 @@ describe('lib/index.js', () => {
     const ctx = {
       fiber,
       inject: (services: string[], callback: (child: unknown) => void) => {
+        if (services.includes('typert')) return // this narrow policy fixture owns no Gateway
         expect(services).toEqual(['settings'])
         callback(child)
       },

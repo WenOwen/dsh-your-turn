@@ -80,18 +80,6 @@ const fields = {
     .default(CONFIG_DEFAULTS.volume)
     .description('Chime volume, 0-100.')
     .volatile(),
-  onlyWhenUnfocused: Schema.boolean()
-    .default(CONFIG_DEFAULTS.onlyWhenUnfocused)
-    .description('Stay silent while the window is focused and the tab is visible.')
-    .volatile(),
-  systemNotification: Schema.boolean()
-    .default(CONFIG_DEFAULTS.systemNotification)
-    .description('Mirror the reminder into a system notification when the page may use one.')
-    .volatile(),
-  flashTitle: Schema.boolean()
-    .default(CONFIG_DEFAULTS.flashTitle)
-    .description('Flash the document title until the page regains focus.')
-    .volatile(),
 } satisfies Record<keyof Config, unknown>
 
 /**

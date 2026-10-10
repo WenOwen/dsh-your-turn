@@ -18,7 +18,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SoundPreset } from '../shared/settings.ts'
-import { GROUPS, type RowDescriptor } from './formSpecs.ts'
+import { GROUPS, DISMISS_CUSTOM, DISMISS_PRESETS, type RowDescriptor } from './formSpecs.ts'
 import type { ImmediateSettings } from './immediateSettings.ts'
 import { NS } from './locale.ts'
 import type { Notifier } from './notifier.ts'
@@ -233,7 +233,82 @@ function control({
           </div>
         </>
       )
+    case 'select':
+      return renderSelect({ t, row, id, draft, disabled, onEdit })
     default:
       return null
   }
+}
+
+/**
+ * The preset/auto-dismiss control: a dropdown of fixed durations plus a
+ * "Custom…" item that reveals a number input next to it. The persisted value
+ * stays a plain integer (seconds), so existing settings documents continue to
+ * apply without migration. Zero means "never" — the same convention the prior
+ * number input already used.
+ */
+function renderSelect({
+  t,
+  row,
+  id,
+  draft,
+  disabled,
+  onEdit,
+}: {
+  t: TranslateNS<typeof NS>
+  row: RowDescriptor
+  id: string
+  draft: SettingsFieldState
+  disabled: boolean
+  onEdit: (field: string, text: string) => void
+}): ReactNode {
+  const control = row.control
+  if (control.kind !== 'select') return null
+  // The user's pick drives which option is highlighted in the dropdown; the
+  // stored value is a plain integer regardless. The override survives picking
+  // a value that happens to also be a preset (e.g. someone wants the input
+  // back to fine-tune the default "5" without re-clicking "Custom…").
+  const [override, setOverride] = useState<'preset' | 'custom' | null>(null)
+  const numeric = Number(draft.text)
+  const knownPreset = Number.isFinite(numeric) && DISMISS_PRESETS.includes(numeric)
+  const inCustom = override === 'custom' || (override === null && !knownPreset)
+  const selected = inCustom ? DISMISS_CUSTOM : String(numeric)
+  return (
+    <div className="yt-row__select" data-mode={inCustom ? 'custom' : 'preset'}>
+      <select
+        id={id}
+        className="yt-row__selectInput"
+        value={selected}
+        disabled={disabled}
+        aria-label={t(row.labelKey)}
+        onChange={(event) => {
+          const next = event.target.value
+          if (next === DISMISS_CUSTOM) {
+            setOverride('custom')
+            return
+          }
+          setOverride('preset')
+          onEdit(row.field, next)
+        }}
+      >
+        {control.optionKeys.map(option => (
+          <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+        ))}
+      </select>
+      {inCustom ? (
+        <Input
+          className="yt-row__input"
+          inputMode="numeric"
+          value={draft.text}
+          placeholder={String(control.customMin)}
+          min={control.customMin}
+          max={control.customMax}
+          disabled={disabled}
+          aria-label={t(control.customLabelKey)}
+          aria-invalid={draft.invalid}
+          onChange={(event) => onEdit(row.field, event.target.value)}
+        />
+      ) : null}
+    </div>
+  )
 }

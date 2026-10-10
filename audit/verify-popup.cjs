@@ -48,11 +48,11 @@ globalThis.window.__ModuleLoader__ = { load(def) { plugin = def.factory((name) =
   throw new Error('Unexpected request: ' + name);
 }); } };
 vm.runInThisContext(fs.readFileSync(__dirname + '/../lib/client.js', 'utf8'));
-async function scenario(label, { onlyWhenUnfocused, attended, available = true }, expected) {
+async function scenario(label, { attended, available = true }, expected) {
   focused = attended; plays = 0;
   const subscriptions = new Set(), registrations = [], disposers = [];
   let rows = { test: { running: false, displayTitle: 'Popup proof' } };
-  const formValue = available ? { onlyWhenUnfocused, surface: 'modal' } : undefined;
+  const formValue = available ? { surface: 'modal' } : undefined;
   const host = {
     locale: { register: () => () => {}, bind: () => (key) => key },
     configForms: { get: () => ({ getSnapshot: () => ({ value: formValue, status: available ? 'ready' : 'unavailable', writable: available, mode: 'host' }), subscribe: () => () => {} }) },
@@ -84,10 +84,10 @@ async function scenario(label, { onlyWhenUnfocused, attended, available = true }
   console.log(JSON.stringify({ label, ...result }));
 }
 (async () => {
-  await scenario('foreground, default attention filter', { onlyWhenUnfocused: true, attended: true }, false);
-  await scenario('foreground, attention filter disabled', { onlyWhenUnfocused: false, attended: true }, true);
-  await scenario('background, attention filter enabled', { onlyWhenUnfocused: true, attended: false }, true);
-  // Unavailable Host-mode settings keep defaults; explicit remote memory mode is covered by Vitest.
+  // Reminders now fire for every handoff regardless of focus: foreground, background, and
+  // unavailable Host settings all reach the same expected result.
+  await scenario('foreground, Host settings present', { attended: true, available: true }, true);
+  await scenario('background, Host settings present', { attended: false, available: true }, true);
   await scenario('unavailable Host settings, short turn', { attended: false, available: false }, true);
   dom.window.close();
   console.log('PASS: built plugin queue -> actual 0.2.0-rc.2 Modal DOM + Escape close; no visual or live-browser assertion.');

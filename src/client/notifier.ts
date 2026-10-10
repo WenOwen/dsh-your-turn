@@ -46,6 +46,12 @@ export interface Reminder {
   raisedAt: number
   /** Whether this reminder came back from a snooze. */
   snoozed: boolean
+  /**
+   * Whether the reminder is currently shown in the popup. Auto-dismiss flips
+   * this to false, leaving the entry in the queue so the sidebar-foot tooltip
+   * can still list it as "unread" until the user acknowledges it.
+   */
+  visibleInPopup: boolean
 }
 
 /** Everything the surfaces render. */
@@ -65,21 +71,23 @@ const MAX_QUEUE = 20
 /** Cross-tab de-duplication window. */
 const DEDUPE_MS = 4000
 
-/** Interval of the title alternation. */
-const FLASH_INTERVAL_MS = 1200
-
 /** One cross-tab announcement. */
 type TabMessage =
   | { readonly kind: 'raised'; readonly sessionId: string; readonly at: number }
   | { readonly kind: 'dismissed'; readonly sessionId: string }
   | { readonly kind: 'question'; readonly key: string; readonly at: number }
 
-/** The slice of `ctx.sessions` the notifier reads for snooze re-checks. */
+/** The slice of `ctx.sessions` the notifier reads. */
 interface SessionsFace {
   readonly list: {
     getSnapshot(): {
-      readonly byId: Readonly<Record<string, { readonly running?: boolean } | undefined>>
+      readonly byId: Readonly<Record<string, {
+        readonly running?: boolean
+        /** The id of the panel currently displaying this Session, when set. */
+        readonly retainedBy?: Readonly<Record<string, number>>
+      } | undefined>>
     }
+    subscribe(listener: () => void): () => void
   }
 }
 
@@ -105,9 +113,6 @@ export class Notifier {
   private readonly recentQuestions = new Map<string, number>()
   private channel: BroadcastChannel | undefined
   private removeFocusListener: (() => void) | undefined
-  private flashTimer: number | undefined
-  private flashBase: string | undefined
-  private flashOn = false
   private disposed = false
 
   /**
@@ -134,7 +139,43 @@ export class Notifier {
       audioUnlocked: sound.isUnlocked(),
     })
     this.openChannel()
-    this.watchFocus()
+    this.watchMainSession()
+  }
+
+  /**
+   * Subscribe to the Session list and acknowledge any pending reminder whose
+   * Session is the one currently retained by the workspace's main view. The
+   * user has effectively opened that session (sidebar click, search hit,
+   * keyboard shortcut, the popup's "Jump" button) and the reminder is no
+   * longer pending; without this, the only way to clear the speaker's
+   * unread badge is to click the popup's "Got it" button, which the user
+   * usually ignores once the popup auto-dismisses.
+   */
+  private watchMainSession(): void {
+    let sessions: SessionsFace | undefined
+    try {
+      sessions = this.ctx.get('sessions' as never) as SessionsFace | undefined
+    } catch {
+      return
+    }
+    if (sessions === undefined) return
+    const reconcile = (): void => {
+      const byId = sessions!.list.getSnapshot().byId
+      // The session currently displayed in the main panel: one row in the
+      // Session list has a positive mainView retention token. Match the first
+      // pending reminder for that session and acknowledge it silently.
+      let opened: string | undefined
+      for (const [id, summary] of Object.entries(byId)) {
+        if ((summary?.retainedBy?.mainView ?? 0) > 0) { opened = id; break }
+      }
+      if (opened === undefined) return
+      const target = this.state.getSnapshot().reminders.find(r => r.sessionId === opened)
+      if (target === undefined) return
+      this.acknowledge(target.id, false)
+    }
+    reconcile()
+    const unsubscribe = sessions.list.subscribe(reconcile)
+    this.ctx.effect(() => () => { unsubscribe() }, 'dsh-your-turn: main session watcher')
   }
 
   /** @returns the configuration the reminder path reads. */
@@ -172,6 +213,7 @@ export class Notifier {
       durationMs: record.durationMs,
       raisedAt: Date.now(),
       snoozed: false,
+      visibleInPopup: true,
     })
   }
 
@@ -192,11 +234,29 @@ export class Notifier {
   }
 
   /**
-   * Remove one reminder from the queue.
+   * Hide the reminder from the popup; the entry stays in the queue so the
+   * sidebar-foot tooltip can still list it as "unread". Auto-dismiss uses this
+   * path; manual "Got it" / "Snooze" / Esc use {@link acknowledge} to drop the
+   * entry entirely.
+   * @param id - reminder identity.
+   */
+  hideFromPopup(id: string): void {
+    const current = this.state.getSnapshot()
+    const next = current.reminders.map(reminder =>
+      reminder.id === id ? { ...reminder, visibleInPopup: false } : reminder
+    )
+    if (next === current.reminders) return
+    this.state.set({ ...current, reminders: next })
+  }
+
+  /**
+   * Remove one reminder from the queue entirely. Use this when the user has
+   * actually acknowledged it (clicked a session in the sidebar-foot tooltip,
+   * pressed Esc, hit "Got it", or snoozed).
    * @param id - reminder identity.
    * @param announce - whether to tell other tabs (false when they told us).
    */
-  dismiss(id: string, announce = true): void {
+  acknowledge(id: string, announce = true): void {
     this.clearDismissTimer(id)
     const current = this.state.getSnapshot()
     const target = current.reminders.find((reminder) => reminder.id === id)
@@ -205,8 +265,15 @@ export class Notifier {
       ...current,
       reminders: current.reminders.filter((reminder) => reminder.id !== id),
     })
-    this.afterQueueChange()
     if (announce) this.post({ kind: 'dismissed', sessionId: target.sessionId })
+  }
+
+  /**
+   * @deprecated Use {@link acknowledge}. Kept as an alias for callers that
+   * already removed the popup and don't want to retitle the action.
+   */
+  dismiss(id: string, announce = true): void {
+    this.acknowledge(id, announce)
   }
 
   /** Remove every pending reminder. */
@@ -216,7 +283,6 @@ export class Notifier {
     const current = this.state.getSnapshot()
     if (current.reminders.length === 0) return
     this.state.set({ ...current, reminders: [] })
-    this.afterQueueChange()
     for (const reminder of current.reminders) this.post({ kind: 'dismissed', sessionId: reminder.sessionId })
   }
 
@@ -283,7 +349,6 @@ export class Notifier {
     this.snoozeTimers.clear()
     for (const timer of this.dismissTimers.values()) window.clearTimeout(timer)
     this.dismissTimers.clear()
-    this.stopTitleFlash()
     this.removeFocusListener?.()
     this.removeFocusListener = undefined
     this.channel?.close()
@@ -299,11 +364,10 @@ export class Notifier {
    * @param config - current configuration.
    * @returns a short reason, or undefined when the reminder should be raised.
    */
-  private rejection(record: TurnEndRecord, config: YourTurnConfig): string | undefined {
+  private rejection(record: TurnEndRecord, _config: YourTurnConfig): string | undefined {
     if (record.subagent) return 'subagent session'
     const snooze = this.local.snoozeUntil[record.sessionId]
     if (snooze !== undefined && snooze > Date.now()) return 'snoozed'
-    if (config.onlyWhenUnfocused && pageAttended()) return 'window is attended'
     return undefined
   }
 
@@ -317,16 +381,17 @@ export class Notifier {
     const queue = [...current.reminders, reminder].slice(-MAX_QUEUE)
     this.state.set({ ...current, reminders: queue })
 
-    // Self-dismissal is scheduled from the raise-time configuration, but the
-    // fire path re-reads it: turning the feature off while a reminder is up
-    // keeps that reminder instead of racing the user's own edit.
+    // Auto-dismissal hides the popup but keeps the entry in the queue so the
+    // sidebar-foot tooltip can still list it as "unread" until the user
+    // acknowledges it. The fire path re-reads the configuration: turning the
+    // feature off while a reminder is up keeps that reminder visible.
     const autoDismissMs = config.autoDismissSeconds * 1000
     if (autoDismissMs > 0) {
       this.clearDismissTimer(reminder.id)
       this.dismissTimers.set(reminder.id, window.setTimeout(() => {
         this.dismissTimers.delete(reminder.id)
         if (this.disposed || this.config.autoDismissSeconds <= 0) return
-        this.dismiss(reminder.id)
+        this.hideFromPopup(reminder.id)
       }, autoDismissMs))
     }
 
@@ -337,13 +402,6 @@ export class Notifier {
       this.sound.play(preset, config.volume)
       this.publishAudioState(this.sound.isUnlocked())
     }
-    if (config.systemNotification) this.postSystemNotification(reminder)
-    if (config.flashTitle && !pageAttended()) this.startTitleFlash()
-  }
-
-  /** Stop the title flash once nothing is pending. */
-  private afterQueueChange(): void {
-    if (this.state.getSnapshot().reminders.length === 0) this.stopTitleFlash()
   }
 
   /** Publish the audio-unlocked bit. */
@@ -352,73 +410,6 @@ export class Notifier {
     if (current.audioUnlocked === unlocked) return
     this.state.set({ ...current, audioUnlocked: unlocked })
     this.onUnlockChange(unlocked)
-  }
-
-  // ── Browser effects ───────────────────────────────────────────────────────
-
-  /** Send a best-effort system notification for one reminder. */
-  private postSystemNotification(reminder: Reminder): void {
-    const api = notificationApi()
-    if (api === undefined || api.permission !== 'granted') return
-    // Only worth a system banner when the page cannot show its own.
-    if (!pageHidden()) return
-    try {
-      const notification = new api(reminder.title, {
-        body: reminder.cwd ?? reminder.sessionId,
-        tag: `dsh-your-turn:${reminder.sessionId}`,
-        silent: true,
-      })
-      notification.onclick = () => {
-        try {
-          globalThis.focus()
-        } catch {
-          // Focus may be refused; the notification still closes.
-        }
-        this.dismiss(reminder.id)
-        notification.close()
-      }
-    } catch (error) {
-      console.warn('[dsh-your-turn] system notification failed', error)
-    }
-  }
-
-  /** Alternate a marker in the document title until the page is attended again. */
-  private startTitleFlash(): void {
-    if (this.flashTimer !== undefined) return
-    if (typeof document === 'undefined') return
-    this.flashBase = document.title
-    this.flashOn = false
-    this.flashTimer = window.setInterval(() => {
-      this.flashOn = !this.flashOn
-      document.title = this.flashOn ? `● ${this.flashBase ?? ''}` : (this.flashBase ?? '')
-    }, FLASH_INTERVAL_MS)
-  }
-
-  /** Restore the document title. */
-  private stopTitleFlash(): void {
-    if (this.flashTimer !== undefined) {
-      window.clearInterval(this.flashTimer)
-      this.flashTimer = undefined
-    }
-    if (this.flashBase !== undefined && typeof document !== 'undefined') {
-      document.title = this.flashBase
-    }
-    this.flashBase = undefined
-  }
-
-  /** Stop flashing as soon as the page is attended again. */
-  private watchFocus(): void {
-    if (typeof window === 'undefined') return
-    const handler = (): void => {
-      if (!pageAttended()) return
-      this.stopTitleFlash()
-    }
-    window.addEventListener('focus', handler)
-    document?.addEventListener('visibilitychange', handler)
-    this.removeFocusListener = () => {
-      window.removeEventListener('focus', handler)
-      document?.removeEventListener('visibilitychange', handler)
-    }
   }
 
   // ── Cross-tab coordination ────────────────────────────────────────────────
@@ -489,22 +480,3 @@ export class Notifier {
       return false
     }
   }}
-
-/** @returns whether the page is visible and the window focused. */
-export function pageAttended(): boolean {
-  if (typeof document === 'undefined') return false
-  if (document.visibilityState === 'hidden') return false
-  if (typeof document.hasFocus === 'function') return document.hasFocus()
-  return true
-}
-
-/** @returns whether the page is not visible. */
-function pageHidden(): boolean {
-  return typeof document !== 'undefined' && document.visibilityState === 'hidden'
-}
-
-/** @returns the Notification constructor, when the browser exposes one. */
-function notificationApi(): typeof Notification | undefined {
-  const api = (globalThis as unknown as { Notification?: typeof Notification }).Notification
-  return typeof api === 'function' ? api : undefined
-}

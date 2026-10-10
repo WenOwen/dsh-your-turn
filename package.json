@@ -19,6 +19,7 @@
     "lib/index.d.ts",
     "lib/client.js",
     "cordis.patch.yml",
+    "assets",
     "README.md",
     "README.zh.md",
     "LICENSE"
@@ -37,11 +38,26 @@
     "turn-complete",
     "session-complete",
     "agent",
+    "reminder",
+    "web-audio",
+    "synthesized",
     "提醒",
     "提示音",
     "弹窗",
     "轮到你了"
   ],
+  "homepage": "https://github.com/WenOwen/dsh-your-turn#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WenOwen/dsh-your-turn.git"
+  },
+  "bugs": {
+    "url": "https://github.com/WenOwen/dsh-your-turn/issues"
+  },
+  "author": {
+    "name": "WenOwen",
+    "url": "https://github.com/WenOwen"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

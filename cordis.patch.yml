@@ -18,6 +18,3 @@
         soundPreset: chime
         errorSoundPreset: alert
         volume: 70
-        onlyWhenUnfocused: true
-        systemNotification: false
-        flashTitle: false

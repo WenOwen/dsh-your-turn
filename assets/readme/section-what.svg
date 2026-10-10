@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 140" width="100%" role="img" aria-labelledby="what-title what-desc" preserveAspectRatio="xMidYMid meet">
+  <title id="what-title">What it does</title>
+  <desc id="what-desc">A central reminder with a chime. Every voice is synthesized in the browser at runtime.</desc>
+  <defs>
+    <linearGradient id="bg-w" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6f3ee"/>
+      <stop offset="1" stop-color="#ece8e1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="140" fill="url(#bg-w)"/>
+  <rect x="0" y="139" width="1200" height="1" fill="#d8d2c8"/>
+
+  <!-- left: section index -->
+  <g font-family="ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace" font-size="12" fill="#7a7368">
+    <text x="40" y="38">01</text>
+    <text x="40" y="58" letter-spacing="1.4">WHAT IT DOES</text>
+  </g>
+
+  <!-- right: a single chime pulse illustrating the audio envelope -->
+  <g transform="translate(440 30)">
+    <rect x="0" y="0" width="720" height="80" rx="12" fill="#fffdf8" stroke="#d8d2c8"/>
+    <g transform="translate(28 40)">
+      <path d="M0 0 C 80 -22, 160 -22, 240 0 C 320 22, 400 22, 480 0 C 560 -16, 640 -10, 680 -4" fill="none" stroke="#b86a48" stroke-width="2" stroke-linecap="round"/>
+      <!-- envelope ticks -->
+      <g stroke="#b86a48" stroke-width="1.5" stroke-linecap="round">
+        <line x1="0"   y1="22"  x2="0"   y2="32"/>
+        <line x1="160" y1="32"  x2="160" y2="42"/>
+        <line x1="320" y1="32"  x2="320" y2="42"/>
+        <line x1="480" y1="22"  x2="480" y2="32"/>
+        <line x1="640" y1="14"  x2="640" y2="24"/>
+      </g>
+      <text x="700" y="6" font-family="ui-monospace, monospace" font-size="11" fill="#7a7368">t →</text>
+    </g>
+  </g>
+
+  <!-- title bar -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif">
+    <text x="40" y="105" font-size="26" font-weight="700" fill="#1d1b18">A popup you can act on. A chime you can hear.</text>
+  </g>
+</svg>

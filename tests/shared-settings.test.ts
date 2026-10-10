@@ -62,10 +62,10 @@ describe('normalizeConfig', () => {
   it('ignores non-boolean and non-numeric payloads', () => {
     const config = normalizeConfig({
       volume: 'loud',
-      flashTitle: null,
+      surface: null,
     })
     expect(config.volume).toBe(CONFIG_DEFAULTS.volume)
-    expect(config.flashTitle).toBe(CONFIG_DEFAULTS.flashTitle)
+    expect(config.surface).toBe(CONFIG_DEFAULTS.surface)
   })
 
   it('accepts every shipped preset, including the failure voice', () => {

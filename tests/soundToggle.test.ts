@@ -48,8 +48,17 @@ function view(
 }
 
 /** Mount one switch and return its pieces. */
-async function mount(source: Observable<SettingsFormView>, wide = true, preview = vi.fn()) {
+async function mount(
+  source: Observable<SettingsFormView>,
+  wide = true,
+  preview = vi.fn(),
+  reminders: ReadonlyArray<{ id: string; sessionId: string; title: string; outcome: string }> = [],
+) {
   const edit = vi.fn()
+  const openSession = vi.fn()
+  const dismiss = vi.fn()
+  const acknowledge = vi.fn()
+  const notifierState = new Observable({ reminders, audioUnlocked: true })
   const container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
@@ -57,14 +66,16 @@ async function mount(source: Observable<SettingsFormView>, wide = true, preview 
     root!.render(createElement(SoundToggle, {
       form: { edit, resetField: vi.fn(), resetAll: vi.fn() },
       view: source,
-      notifier: { preview } as unknown as Notifier,
+      notifier: { preview, state: notifierState, dismiss, acknowledge, settingsSnapshot: source } as unknown as Notifier,
+      openSession,
       wide,
       t,
     }))
   })
   const row = (): HTMLElement | null => container.querySelector('.yt-sound')
   const button = (): HTMLButtonElement | null => container.querySelector('button.yt-sound__trigger')
-  return { container, row, button, edit, preview }
+  const tooltip = (): HTMLElement | null => container.querySelector('.yt-sound__pending')
+  return { container, row, button, tooltip, edit, preview, openSession, dismiss, acknowledge, notifierState }
 }
 
 describe('sidebar-foot sound switch', () => {
@@ -152,5 +163,37 @@ describe('sidebar-foot sound switch', () => {
   it('renders nothing when the form exposes no sound field', async () => {
     const { container } = await mount(view('true', { fields: false }))
     expect(container.querySelector('button')).toBeNull()
+  })
+
+  it('shows a pending badge and a hover tooltip listing unread sessions', async () => {
+    const reminders = [
+      { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
+      { id: 'b', sessionId: 'session-2', title: 'Patch login', outcome: 'failed' },
+    ]
+    const { button, tooltip, row, openSession, acknowledge } = await mount(view('true'), true, vi.fn(), reminders)
+    expect(row()?.getAttribute('data-pending')).toBe('true')
+    expect(button()?.querySelector('.yt-sound__badge')?.textContent).toBe('2')
+    expect(button()?.getAttribute('aria-describedby')).toBe('yt-sound-pending')
+    expect(tooltip()?.getAttribute('id')).toBe('yt-sound-pending')
+    const items = [...tooltip()!.querySelectorAll('.yt-sound__pendingItem')]
+    expect(items.map(item => item.textContent)).toEqual([
+      'Refactor auth',
+      'Patch login',
+    ])
+    await act(async () => items[0]!.dispatchEvent(new Event('click', { bubbles: true })))
+    expect(openSession).toHaveBeenCalledWith('session-1')
+    expect(acknowledge).toHaveBeenCalledWith('a')
+  })
+
+  it('collapses the badge when every pending reminder has been read', async () => {
+    const { button, tooltip, notifierState, row } = await mount(view('true'), true, vi.fn(), [
+      { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
+    ])
+    expect(row()?.getAttribute('data-pending')).toBe('true')
+    expect(tooltip()).not.toBeNull()
+    await act(async () => notifierState.set({ reminders: [], audioUnlocked: true }))
+    expect(button()?.querySelector('.yt-sound__badge')).toBeNull()
+    expect(tooltip()).toBeNull()
+    expect(row()?.getAttribute('data-pending')).toBeNull()
   })
 })

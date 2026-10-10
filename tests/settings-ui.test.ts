@@ -50,7 +50,7 @@ let dispose: (() => void) | undefined
 afterEach(async () => { await act(async () => root?.unmount()); dispose?.(); root = undefined; dispose = undefined; document.body.replaceChildren(); localStorage.clear(); vi.useRealTimers() })
 
 describe('settings option interaction', () => {
-  it('applies surface/sound/attention selections automatically, with no Save button', async () => {
+  it('applies surface/sound selections automatically, with no Save button', async () => {
     const scope = new BrowserSettings()
     const model = new ImmediateSettings(scope, FIELD_SPECS)
     dispose = () => model.dispose()
@@ -65,8 +65,6 @@ describe('settings option interaction', () => {
     expect(option('option.surface.modal').getAttribute('aria-pressed')).toBe('false')
     expect(scope.getSnapshot().value?.surface).toBe('toast')
     expect([...container.querySelectorAll('button')].some(button => button.textContent === 'Save' || button.textContent === 'settings.save')).toBe(false)
-    await act(async () => option('option.attention.always').click())
-    expect(option('option.attention.always').getAttribute('aria-pressed')).toBe('true')
     expect(notifier.preview).not.toHaveBeenCalled()
     expect(container.textContent).not.toContain('settings.preview')
     // There are two sound rows; selecting either previews exactly the chosen voice.
@@ -83,8 +81,8 @@ describe('settings option interaction', () => {
     await act(async () => errorVoice('option.sound.drop').click())
     expect(notifier.preview).toHaveBeenLastCalledWith('drop')
     expect(scope.getSnapshot().value?.errorSoundPreset).toBe('drop')
-    expect(scope.getSnapshot().value).toMatchObject({ surface: 'toast', soundPreset: 'ping', onlyWhenUnfocused: false })
-    expect(new BrowserSettings().getSnapshot().value).toMatchObject({ surface: 'toast', soundPreset: 'ping', onlyWhenUnfocused: false })
+    expect(scope.getSnapshot().value).toMatchObject({ surface: 'toast', soundPreset: 'ping' })
+    expect(new BrowserSettings().getSnapshot().value).toMatchObject({ surface: 'toast', soundPreset: 'ping' })
     for (const key of [
       'settings.intro', 'settings.selectionHint', 'settings.hostStorage', 'settings.browserStorage',
       'settings.footer', 'settings.reset', 'settings.resetAll', 'settings.resetAllHint', 'settings.overridden',
@@ -95,7 +93,7 @@ describe('settings option interaction', () => {
     }
     expect(container.querySelector('.yt-row__hint')).toBeNull()
     expect(container.textContent).toContain('field.surface.label')
-    for (const field of ['systemNotification', 'flashTitle', 'soundPreset', 'errorSoundPreset']) {
+    for (const field of ['soundPreset', 'errorSoundPreset']) {
       expect(container.textContent).toContain(`field.${field}.label`)
     }
     // The surface vocabulary is one-of: the retired "both" option is gone, and
@@ -115,20 +113,30 @@ describe('settings option interaction', () => {
     for (const field of ['enabled', 'includeSubagents', 'muteAll', 'notifyOn', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'minTurnSeconds']) {
       expect(container.querySelector(`label[for="yt-field-${field}"]`)).toBeNull()
     }
-    // The auto-dismiss delay is a live field again: a numeric row that applies
-    // in-range values immediately and refuses out-of-range drafts.
-    const delay = container.querySelector<HTMLInputElement>('#yt-field-autoDismissSeconds')!
-    const setInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
-    expect(delay.placeholder).toBe('5')
-    expect(delay.value).toBe('5')
+    // The auto-dismiss delay is a live field again: a preset dropdown plus an
+    // optional custom number input that applies in-range values immediately
+    // and refuses out-of-range drafts.
+    const select = container.querySelector<HTMLSelectElement>('#yt-field-autoDismissSeconds')!
+    const setSelect = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!
+    expect(select.tagName).toBe('SELECT')
+    expect(select.value).toBe('5')
     await act(async () => {
-      setInput.call(delay, '30')
-      delay.dispatchEvent(new Event('input', { bubbles: true }))
+      setSelect.call(select, '30')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
     })
     expect(scope.getSnapshot().value?.autoDismissSeconds).toBe(30)
+    // Switching to "Custom…" reveals a number input. The previously chosen
+    // value stays so the user can fine-tune from there.
     await act(async () => {
-      setInput.call(delay, '700')
-      delay.dispatchEvent(new Event('input', { bubbles: true }))
+      setSelect.call(select, 'custom')
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    const custom = container.querySelector<HTMLInputElement>('.yt-row__select input')!
+    const setInput = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+    expect(custom.value).toBe('30')
+    await act(async () => {
+      setInput.call(custom, '700')
+      custom.dispatchEvent(new Event('input', { bubbles: true }))
     })
     expect(container.textContent).toContain('settings.invalid')
     expect(scope.getSnapshot().value?.autoDismissSeconds).toBe(30)
@@ -165,7 +173,7 @@ describe('reminder surfaces', () => {
   // This test drives the queue by hand and checks the actions reach the queue.
   it.each(['modal', 'toast'] as const)('renders the %s queue head and routes its actions', async (surface) => {
     vi.useFakeTimers()
-    const first = { id: 'first', sessionId: 'session-a', title: 'First session', cwd: undefined, outcome: 'completed' as const, turn: undefined, durationMs: 1, raisedAt: 0, snoozed: false }
+    const first = { id: 'first', sessionId: 'session-a', title: 'First session', cwd: undefined, outcome: 'completed' as const, turn: undefined, durationMs: 1, raisedAt: 0, snoozed: false, visibleInPopup: true }
     const second = { ...first, id: 'second', sessionId: 'session-b', title: 'Second session' }
     const state = new Observable({ reminders: [first, second], audioUnlocked: true })
     const dismiss = vi.fn((id: string) => state.set({ ...state.getSnapshot(), reminders: state.getSnapshot().reminders.filter(reminder => reminder.id !== id) }))
@@ -186,6 +194,16 @@ describe('reminder surfaces', () => {
     await act(async () => ignore.click())
     expect(visible()).toBeNull()
     expect(state.getSnapshot().reminders).toEqual([])
+  })
+
+  it('renders nothing when the head is auto-dismissed, even though the entry is still in the queue', async () => {
+    const first = { id: 'first', sessionId: 'session-a', title: 'First session', cwd: undefined, outcome: 'completed' as const, turn: undefined, durationMs: 1, raisedAt: 0, snoozed: false, visibleInPopup: false }
+    const state = new Observable({ reminders: [first], audioUnlocked: true })
+    const notifier = { state, dismiss: vi.fn(), acknowledge: vi.fn(), settingsSnapshot: new Observable({ config: normalizeConfig({ surface: 'modal' }), status: 'ready', writable: true }) } as unknown as Notifier
+    const container = document.createElement('div'); document.body.append(container); root = createRoot(container)
+    await act(async () => root!.render(createElement(ReminderSurface, { notifier, openSession: vi.fn(), t: ((key: string) => key) as any })))
+    expect(container.querySelector('[data-modal]')).toBeNull()
+    expect(state.getSnapshot().reminders).toHaveLength(1)
   })
 })
 
@@ -250,10 +268,10 @@ describe('automatic write queue', () => {
     const model = new ImmediateSettings(settings.form!, FIELD_SPECS)
     dispose = () => { model.dispose(); settings.dispose() }
     model.actions.edit('surface', 'toast')
-    model.actions.edit('onlyWhenUnfocused', 'false')
+    model.actions.edit('soundPreset', 'ping')
     await settle()
-    expect(settings.config).toMatchObject({ surface: 'toast', onlyWhenUnfocused: false })
-    expect(new BrowserSettings().getSnapshot().value).toMatchObject({ surface: 'toast', onlyWhenUnfocused: false })
+    expect(settings.config).toMatchObject({ surface: 'toast', soundPreset: 'ping' })
+    expect(new BrowserSettings().getSnapshot().value).toMatchObject({ surface: 'toast', soundPreset: 'ping' })
   })
   it('does not lose fast same-field or different-field edits during an in-flight write', async () => {
     const scope = new BrowserSettings()

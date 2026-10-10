@@ -152,7 +152,9 @@ export function apply(ctx: Context): void {
 
   // 6. The always-available sound switch, in the sidebar foot beside the
   //    remote-control phone. It rides on the settings model's own face, so the
-  //    foot switch and the settings row are one state.
+  //    foot switch and the settings row are one state. The same `openSession`
+  //    the popup uses is injected here so the hover tooltip can navigate to a
+  //    pending reminder without a second seam.
   ctx.slots.inject(FOOTER_SEAT, () =>
     ctx.slots.register(
       {
@@ -160,7 +162,7 @@ export function apply(ctx: Context): void {
         id: SOUND_TOGGLE_ID,
         order: 10,
         locale: NS,
-        inject: () => ({ form: actions, view, notifier }),
+        inject: () => ({ form: actions, view, notifier, openSession }),
       },
       SoundToggle,
     ),

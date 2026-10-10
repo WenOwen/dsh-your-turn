@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Context } from '@deepseek-ai/cordis'
 import { normalizeConfig, type YourTurnConfig } from '../src/shared/settings.ts'
 import { STORAGE_KEY, type LocalState } from '../src/client/localState.ts'
-import { Notifier, SNOOZE_MS, pageAttended } from '../src/client/notifier.ts'
+import { Notifier, SNOOZE_MS } from '../src/client/notifier.ts'
 import { Observable } from '../src/client/observable.ts'
 import type { ResolvedSettings, SettingsController } from '../src/client/settings.ts'
 import type { SoundEngine } from '../src/client/sound.ts'
@@ -106,10 +106,9 @@ function build(overrides: Partial<YourTurnConfig> = {}): {
   sound: FakeSound
   settings: ReturnType<typeof fakeSettings>
 } {
-  // The attention gate and self-dismissal are off by default so each test
-  // states the filter it is actually about; the tests that exercise the gate
-  // or the auto-dismiss timer opt back in.
-  const settings = fakeSettings({ onlyWhenUnfocused: false, autoDismissSeconds: 0, ...overrides })
+  // Self-dismissal is off by default so each test states the timer it is
+  // actually about; the auto-dismiss tests opt back in.
+  const settings = fakeSettings({ autoDismissSeconds: 0, ...overrides })
   const sound = new FakeSound()
   const notifier = new Notifier(CONTEXT, settings.controller, sound as unknown as SoundEngine, () => undefined)
   return { notifier, sound, settings }
@@ -121,13 +120,13 @@ function setVisibility(state: 'visible' | 'hidden'): void {
 }
 
 /**
- * Build the configuration an older settings document would produce: the
- * attention gate off, plus whatever retired fields the test names. Removed
- * fields are dropped by `normalizeConfig`, which is exactly the behaviour under
- * test — they must not switch anything off.
+ * Build the configuration an older settings document would produce: defaults
+ * plus whatever retired fields the test names. Removed fields are dropped by
+ * `normalizeConfig`, which is exactly the behaviour under test — they must not
+ * switch anything off.
  */
 function legacySettings(fields: Record<string, unknown> = {}): Partial<YourTurnConfig> {
-  return normalizeConfig({ onlyWhenUnfocused: false, ...fields })
+  return normalizeConfig(fields)
 }
 
 /** Force window focus a test needs. */
@@ -152,18 +151,6 @@ afterEach(() => {
   delete (globalThis as { BroadcastChannel?: unknown }).BroadcastChannel
 })
 
-describe('pageAttended', () => {
-  it('is false while hidden and true when visible and focused', () => {
-    setVisibility('hidden')
-    expect(pageAttended()).toBe(false)
-    setVisibility('visible')
-    setFocus(false)
-    expect(pageAttended()).toBe(false)
-    setFocus(true)
-    expect(pageAttended()).toBe(true)
-  })
-})
-
 describe('Notifier filtering', () => {
   it('reminds even when a legacy master switch says off', () => {
     const { notifier, sound } = build(legacySettings({ enabled: false }))
@@ -182,7 +169,7 @@ describe('Notifier filtering', () => {
   })
 
   it.each([0, 1, 1000])('reminds even for a %d ms turn with a legacy minimum-duration setting', (durationMs) => {
-    const { notifier, sound } = build(normalizeConfig({ minTurnSeconds: 3600, onlyWhenUnfocused: false }))
+    const { notifier, sound } = build(normalizeConfig({ minTurnSeconds: 3600 }))
     notifier.consider(record({ durationMs }))
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
     expect(sound.played).toHaveLength(1)
@@ -200,13 +187,12 @@ describe('Notifier filtering', () => {
     },
   )
 
-  it('stays silent while the page is attended, when asked to', () => {
-    const { notifier } = build({ onlyWhenUnfocused: true })
+  it('always reminds regardless of window focus', () => {
+    // The background-only filter was removed; reminders now fire for every
+    // handoff, foreground or background.
+    setFocus(true)
+    const { notifier } = build()
     notifier.consider(record())
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
-
-    setFocus(false)
-    notifier.consider(record({ endedAt: 20_000 }))
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
     notifier.dispose()
   })
@@ -218,7 +204,6 @@ describe('Notifier filtering', () => {
       const config = normalizeConfig({
         notifyOn: 'success', muteAll: true,
         quietHoursEnabled: true, quietHoursStart: '11:00', quietHoursEnd: '13:00',
-        onlyWhenUnfocused: false,
       })
       const { notifier, sound } = build(config)
       notifier.consider(record({ outcome }))
@@ -249,13 +234,15 @@ describe('Notifier effects', () => {
     notifier.dispose()
   })
 
-  it('dismisses a reminder by itself after the configured delay', () => {
+  it('hides the popup after the configured delay but leaves the entry in the queue', () => {
     const { notifier } = build({ autoDismissSeconds: 5 })
     notifier.consider(record())
     vi.advanceTimersByTime(4_999)
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    expect(notifier.state.getSnapshot().reminders[0]!.visibleInPopup).toBe(true)
     vi.advanceTimersByTime(1)
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
+    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    expect(notifier.state.getSnapshot().reminders[0]!.visibleInPopup).toBe(false)
     notifier.dispose()
   })
 
@@ -265,10 +252,15 @@ describe('Notifier effects', () => {
     vi.advanceTimersByTime(2_000)
     notifier.consider(record({ sessionId: 'b', endedAt: 20_000 }))
     vi.advanceTimersByTime(3_000)
-    // Five seconds in, the first reminder is gone; the second has two left.
-    expect(notifier.state.getSnapshot().reminders.map((r) => r.sessionId)).toEqual(['b'])
+    // Five seconds in, the first reminder auto-dismissed (visibleInPopup: false);
+    // the second has two left on its clock.
+    const snapshot = notifier.state.getSnapshot()
+    expect(snapshot.reminders.map((r) => r.sessionId)).toEqual(['session-a', 'b'])
+    expect(snapshot.reminders.map((r) => r.visibleInPopup)).toEqual([false, true])
     vi.advanceTimersByTime(2_000)
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
+    const later = notifier.state.getSnapshot().reminders
+    expect(later.map((r) => r.sessionId)).toEqual(['session-a', 'b'])
+    expect(later.every((r) => r.visibleInPopup === false)).toBe(true)
     notifier.dispose()
   })
 
@@ -277,21 +269,49 @@ describe('Notifier effects', () => {
     notifier.consider(record())
     settings.snapshot.set({
       ...settings.snapshot.getSnapshot(),
-      config: normalizeConfig({ onlyWhenUnfocused: false, autoDismissSeconds: 0 }),
+      config: normalizeConfig({ autoDismissSeconds: 0 }),
     })
     vi.advanceTimersByTime(10_000)
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
     notifier.dispose()
   })
 
-  it('a snoozed reminder self-dismisses from its re-raise', () => {
+  it('auto-dismiss keeps the entry in the queue, but flips it out of the popup', () => {
+    const { notifier } = build({ autoDismissSeconds: 5 })
+    notifier.consider(record())
+    const id = notifier.state.getSnapshot().reminders[0]!.id
+    expect(notifier.state.getSnapshot().reminders[0]!.visibleInPopup).toBe(true)
+    vi.advanceTimersByTime(5_000)
+    const queue = notifier.state.getSnapshot().reminders
+    expect(queue).toHaveLength(1)
+    expect(queue[0]!.id).toBe(id)
+    expect(queue[0]!.visibleInPopup).toBe(false)
+    notifier.dispose()
+  })
+
+  it('acknowledge removes the entry even after auto-dismiss kept it in the queue', () => {
+    const { notifier } = build({ autoDismissSeconds: 5 })
+    notifier.consider(record())
+    vi.advanceTimersByTime(5_000)
+    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    notifier.acknowledge(notifier.state.getSnapshot().reminders[0]!.id)
+    expect(notifier.state.getSnapshot().reminders).toEqual([])
+    notifier.dispose()
+  })
+
+  it('a snoozed reminder re-raises and auto-dismisses from its new clock', () => {
     const { notifier } = build({ autoDismissSeconds: 5 })
     notifier.consider(record())
     notifier.snooze(notifier.state.getSnapshot().reminders[0]!.id)
     vi.advanceTimersByTime(5 * 60_000)
-    expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    const reRaised = notifier.state.getSnapshot().reminders
+    expect(reRaised).toHaveLength(1)
+    expect(reRaised[0]!.snoozed).toBe(true)
+    expect(reRaised[0]!.visibleInPopup).toBe(true)
     vi.advanceTimersByTime(5_000)
-    expect(notifier.state.getSnapshot().reminders).toEqual([])
+    const after = notifier.state.getSnapshot().reminders
+    expect(after).toHaveLength(1)
+    expect(after[0]!.visibleInPopup).toBe(false)
     notifier.dispose()
   })
 
@@ -300,6 +320,28 @@ describe('Notifier effects', () => {
     notifier.consider(record())
     vi.advanceTimersByTime(10 * 60_000)
     expect(notifier.state.getSnapshot().reminders).toHaveLength(1)
+    notifier.dispose()
+  })
+
+  it('drops a pending reminder when the workspace opens the matching session', () => {
+    // Mimic the official Session face the notifier reads: a list snapshot
+    // keyed by id, with mainView retention on the row that owns the panel.
+    const byId: Record<string, { running?: boolean; retainedBy?: Record<string, number> }> = {}
+    const list = { getSnapshot: () => ({ byId }), subscribe: (fn: () => void) => { subscribers.push(fn); return () => undefined } }
+    const subscribers: Array<() => void> = []
+    const ctx = { get: (key: string) => key === 'sessions' ? { list } : undefined, effect: () => () => undefined } as unknown as Context
+    const settings = fakeSettings({ autoDismissSeconds: 0 })
+    const sound = new FakeSound()
+    const notifier = new Notifier(ctx, settings.controller, sound as unknown as SoundEngine, () => undefined)
+    notifier.consider(record())
+    notifier.consider(record({ sessionId: 'session-b', endedAt: 20_000 }))
+    expect(notifier.state.getSnapshot().reminders).toHaveLength(2)
+    // The user opens session B in the workspace. mainView retention appears,
+    // subscribers fire, and the matching reminder is acknowledged.
+    byId['session-b'] = { retainedBy: { mainView: 1 } }
+    for (const fn of subscribers) fn()
+    const after = notifier.state.getSnapshot().reminders
+    expect(after.map(r => r.sessionId)).toEqual(['session-a'])
     notifier.dispose()
   })
 
@@ -329,25 +371,6 @@ describe('Notifier effects', () => {
     expect(notifier.state.getSnapshot().reminders.map((r) => r.sessionId)).toEqual(['b', 'c'])
     notifier.dismissAll()
     expect(notifier.state.getSnapshot().reminders).toEqual([])
-    notifier.dispose()
-  })
-
-  it('stops flashing the title when the queue empties', () => {
-    const { notifier } = build({ flashTitle: true })
-    setFocus(false)
-    notifier.consider(record())
-    vi.advanceTimersByTime(1_200)
-    expect(document.title).toBe('● DeepSeek Harness')
-    notifier.dismissAll()
-    expect(document.title).toBe('DeepSeek Harness')
-    notifier.dispose()
-  })
-
-  it('never flashes the title while the page is attended', () => {
-    const { notifier } = build({ flashTitle: true, onlyWhenUnfocused: false })
-    notifier.consider(record())
-    vi.advanceTimersByTime(2_400)
-    expect(document.title).toBe('DeepSeek Harness')
     notifier.dispose()
   })
 
@@ -419,7 +442,7 @@ describe('Notifier snooze and legacy local state', () => {
 
 describe('question sounds', () => {
   it('sounds even in the foreground, without another modal', () => {
-    const { notifier, sound } = build({ onlyWhenUnfocused: true })
+    const { notifier, sound } = build()
     notifier.considerQuestion({ sessionId: 'a', key: 'question:1', subagent: false })
     expect(sound.played).toHaveLength(1)
     expect(notifier.state.getSnapshot().reminders).toEqual([])

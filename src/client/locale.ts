@@ -68,12 +68,21 @@ const zh = {
     '本机页面保存到 DSH 部署；远程页面保存到当前浏览器。修改自动应用。',
 
   'field.surface.label': '提醒形式',
-  'field.surface.hint': '居中弹窗可以点按钮；顶部横幅更轻，但只有文字可点。',
+  'field.surface.hint': '居中弹窗与顶部横幅显示在页面里。',
   'option.surface.modal': '居中弹窗',
   'option.surface.toast': '顶部横幅',
 
-  'field.autoDismissSeconds.label': '自动消失（秒）',
+  'field.autoDismissSeconds.label': '自动消失',
   'field.autoDismissSeconds.hint': '提醒出现这么久后自动关闭；0 表示不自动消失，需要手动关闭。',
+  'option.dismiss.never': '从不',
+  'option.dismiss.5s': '5 秒',
+  'option.dismiss.10s': '10 秒',
+  'option.dismiss.30s': '30 秒',
+  'option.dismiss.1m': '1 分钟',
+  'option.dismiss.2m': '2 分钟',
+  'option.dismiss.5m': '5 分钟',
+  'option.dismiss.custom': '自定义…',
+  'option.dismiss.customValue': '自定义秒数',
 
   'field.soundEnabled.label': '播放提示音',
   'field.soundEnabled.hint': '回合结束和等待你回答问题时响铃；关闭后仍显示原有提示，但不出声。',
@@ -92,26 +101,18 @@ const zh = {
   'sound.toggle.label': '提示音',
   'sound.toggle.mute': '静音（点击关闭提示音）',
   'sound.toggle.unmute': '开启提示音',
+  'sound.pending.one': '1 个未查看的提醒',
+  'sound.pending.many': '{count} 个未查看的提醒',
+  'sound.pending.openSession': '跳到该会话',
 
   'field.volume.label': '音量',
   'field.volume.hint': '0 到 100。',
-
-  'field.onlyWhenUnfocused.label': '提醒时机',
-  'field.onlyWhenUnfocused.hint': '「仅后台」：切到其他软件、标签页或最小化后才弹窗和响铃；「前台也提醒」：正在这个页面操作时也提醒。两台电脑各自判断，提问提示音不受此项限制。',
-  'option.attention.background': '仅后台提醒',
-  'option.attention.always': '前台也提醒',
 
   'field.notifyOn.label': '提醒哪些结果',
   'field.notifyOn.hint': '选择在哪些回合结果上叫你。',
   'option.notifyOn.success': '仅成功',
   'option.notifyOn.success-and-failure': '成功与失败',
   'option.notifyOn.all': '全部（含中断、截断）',
-
-  'field.systemNotification.label': '同时发系统通知',
-  'field.systemNotification.hint': '需要浏览器授予通知权限；仅在页面不可见时发送，并随提醒一起关闭。',
-
-  'field.flashTitle.label': '闪烁标签标题',
-  'field.flashTitle.hint': '在标签页标题前反复切换提示文字，直到窗口重新获得焦点。',
 
   'field.quietHoursEnabled.label': '免打扰时段',
   'field.quietHoursEnabled.hint': '在这个时间段内不提醒、不出声。',
@@ -186,12 +187,21 @@ const en: Record<YourTurnKey, string> = {
     'Local pages save to the DSH deployment; remote pages save to this browser. Changes apply automatically.',
 
   'field.surface.label': 'Reminder surface',
-  'field.surface.hint': 'The centred popup carries buttons; the banner is lighter but only its text takes the pointer.',
+  'field.surface.hint': 'Modal and banner render in-page.',
   'option.surface.modal': 'Centred popup',
   'option.surface.toast': 'Top banner',
 
-  'field.autoDismissSeconds.label': 'Auto-dismiss (seconds)',
+  'field.autoDismissSeconds.label': 'Auto-dismiss',
   'field.autoDismissSeconds.hint': 'The reminder closes itself after this long; 0 keeps it until you close it.',
+  'option.dismiss.never': 'Never',
+  'option.dismiss.5s': '5 seconds',
+  'option.dismiss.10s': '10 seconds',
+  'option.dismiss.30s': '30 seconds',
+  'option.dismiss.1m': '1 minute',
+  'option.dismiss.2m': '2 minutes',
+  'option.dismiss.5m': '5 minutes',
+  'option.dismiss.custom': 'Custom…',
+  'option.dismiss.customValue': 'Custom value in seconds',
 
   'field.soundEnabled.label': 'Play a chime',
   'field.soundEnabled.hint': 'Chime at turn end and when a question needs your answer. Off keeps the original UI but silences both.',
@@ -210,26 +220,18 @@ const en: Record<YourTurnKey, string> = {
   'sound.toggle.label': 'Chime',
   'sound.toggle.mute': 'Mute the chime',
   'sound.toggle.unmute': 'Turn the chime back on',
+  'sound.pending.one': '1 unread reminder',
+  'sound.pending.many': '{count} unread reminders',
+  'sound.pending.openSession': 'Open this session',
 
   'field.volume.label': 'Volume',
   'field.volume.hint': 'From 0 to 100.',
-
-  'field.onlyWhenUnfocused.label': 'Reminder timing',
-  'field.onlyWhenUnfocused.hint': 'Background only: remind after switching apps/tabs or minimizing. Also in foreground: remind while using this page. Each computer decides separately; question chimes ignore this filter.',
-  'option.attention.background': 'Background only',
-  'option.attention.always': 'Also in foreground',
 
   'field.notifyOn.label': 'Which outcomes remind',
   'field.notifyOn.hint': 'Choose the turn outcomes that should call you back.',
   'option.notifyOn.success': 'Success only',
   'option.notifyOn.success-and-failure': 'Success and failure',
   'option.notifyOn.all': 'Everything, including interruptions',
-
-  'field.systemNotification.label': 'Also send a system notification',
-  'field.systemNotification.hint': 'Needs browser notification permission; sent only while the page is hidden and closed with the reminder.',
-
-  'field.flashTitle.label': 'Flash the tab title',
-  'field.flashTitle.hint': 'Alternates a marker in the document title until the window regains focus.',
 
   'field.quietHoursEnabled.label': 'Quiet hours',
   'field.quietHoursEnabled.hint': 'Nothing is raised or played inside this window.',

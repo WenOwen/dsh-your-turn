@@ -43,7 +43,9 @@ const ROOT_ATTR = { 'data-plugin': 'dsh-your-turn' } as const
 export function ReminderSurface({ t, notifier, openSession }: ReminderProps): ReactNode {
   const state = useSnapshot(notifier.state)
   const settings = useSnapshot(notifier.settingsSnapshot)
-  const head = state.reminders[0]
+  // Only the entries still on screen count for the popup; auto-dismissed
+  // entries stay in the queue so the sidebar-foot tooltip can still list them.
+  const head = state.reminders.find(reminder => reminder.visibleInPopup)
   if (head === undefined) return null
 
   const showModal = settings.config.surface === 'modal'

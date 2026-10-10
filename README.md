@@ -1,7 +1,7 @@
-# dsh-your-turn
+# @wu5/dsh-your-turn
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="dsh-your-turn: a centred popup and a synthesized chime for every Agent handoff. Six voices generated in the browser, no audio files shipped.">
+  <img src="./assets/readme/hero.svg" width="100%" alt="@wu5/dsh-your-turn: a centred popup and a synthesized chime for every Agent handoff. Six voices generated in the browser, no audio files shipped.">
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@ A DeepSeek Harness session is rarely watched the whole time — the user is in a
 
 ## Why it's different
 
-Most "reminder" plugins for AI agents either need a separate server, a Host-side patch with a poll loop, or a file watcher. `dsh-your-turn` doesn't. The Web client already knows when every session's Agent stops — it has to, to render the running dot. This plugin reads that same state in-process:
+Most "reminder" plugins for AI agents either need a separate server, a Host-side patch with a poll loop, or a file watcher. `@wu5/dsh-your-turn` doesn't. The Web client already knows when every session's Agent stops — it has to, to render the running dot. This plugin reads that same state in-process:
 
 - **Zero audio assets.** The plugin ships no `.mp3` or `.wav`. Every voice is `OscillatorNode + GainNode` with an exponential attack-and-decay envelope; a `DynamicsCompressor` at the end of the graph lets the master gain sit above full scale without clipping.
 - **Zero Host Remote.** No API gateway contribution, no schema to declare, no extra surface. The browser side is a single Cordis plugin that registers a slot and a settings section.

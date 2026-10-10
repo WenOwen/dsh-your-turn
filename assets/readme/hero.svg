@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="100%" role="img" aria-labelledby="hero-title hero-desc" preserveAspectRatio="xMidYMid meet">
-  <title id="hero-title">dsh-your-turn — turn-handoff reminder for DeepSeek Harness</title>
+  <title id="hero-title">@wu5/dsh-your-turn — turn-handoff reminder for DeepSeek Harness</title>
   <desc id="hero-desc">A centred popup and a synthesized chime for every Agent handoff. Six voices generated in the browser, no audio files shipped.</desc>
 
   <defs>
@@ -35,7 +35,7 @@
 
   <!-- Title -->
   <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif" fill="#f1ece6">
-    <text x="60" y="172" font-size="58" font-weight="700" letter-spacing="-1.2">dsh-your-turn</text>
+    <text x="60" y="172" font-size="52" font-weight="700" letter-spacing="-1.2">@wu5/dsh-your-turn</text>
     <text x="60" y="214" font-size="20" font-weight="400" fill="#b6bcc4">轮到你了 — popup + chime when an Agent hands the turn back.</text>
   </g>
 

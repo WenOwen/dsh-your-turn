@@ -1,7 +1,7 @@
-# dsh-your-turn（轮到你了）
+# @wu5/dsh-your-turn（轮到你了）
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="dsh-your-turn：每个 Agent 回合交接都弹出一个可操作的窗口，并播放浏览器实时合成的提示音。">
+  <img src="./assets/readme/hero.svg" width="100%" alt="@wu5/dsh-your-turn：每个 Agent 回合交接都弹出一个可操作的窗口，并播放浏览器实时合成的提示音。">
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@ DeepSeek Harness 的会话很少被人一直盯着——用户在另一个标签
 
 ## 它有什么不一样
 
-大多数「提醒」类 AI 插件，要么自己起一个后台服务，要么要在 Host 端加轮询，要么去监听日志文件。`dsh-your-turn` 都不需要——Web 客户端本来就知道每个会话的 Agent 是不是还在跑（它要画那个小圆点），这个插件就读这一份状态：
+大多数「提醒」类 AI 插件，要么自己起一个后台服务，要么要在 Host 端加轮询，要么去监听日志文件。`@wu5/dsh-your-turn` 都不需要——Web 客户端本来就知道每个会话的 Agent 是不是还在跑（它要画那个小圆点），这个插件就读这一份状态：
 
 - **零音频资源**。插件不打包 `.mp3`、`.wav`。每种音色都是 `OscillatorNode + GainNode` 配指数包络，输出端再接一个 `DynamicsCompressor`——主增益能跑到 1.5 倍以上而不破音。
 - **零 Host Remote**。不需要 API Gateway 贡献、不需要额外 schema、不需要新增页面。浏览器侧只装一个 Cordis 插件，挂一个 Slot 和一个设置面板。

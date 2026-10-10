@@ -10,7 +10,7 @@
 # every field you want to keep.
 - insert:
     - id: your-turn
-      name: 'dsh-your-turn'
+      name: '@wu5/dsh-your-turn'
       config:
         surface: modal
         autoDismissSeconds: 5

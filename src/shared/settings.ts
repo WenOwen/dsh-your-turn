@@ -13,7 +13,7 @@
 export const ENTRY_ID = 'your-turn'
 
 /** Package name; the ModuleLoader id and the Cordis patch `name`. */
-export const PACKAGE_NAME = 'dsh-your-turn'
+export const PACKAGE_NAME = '@wu5/dsh-your-turn'
 
 /** Locale namespace registered through `ctx.locale.register`. */
 export const LOCALE_NS = 'yourTurn'

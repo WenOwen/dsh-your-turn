@@ -39,7 +39,7 @@ interface YourTurnConfig {
 //#endregion
 //#region src/index.d.ts
 /** Cordis plugin name; matches the package name and the ModuleLoader id. */
-declare const name = "dsh-your-turn";
+declare const name = "@wu5/dsh-your-turn";
 /**
  * The plugin's configuration.
  *

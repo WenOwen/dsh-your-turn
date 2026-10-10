@@ -1,6 +1,9 @@
 {
-  "name": "dsh-your-turn",
+  "name": "@wu5/dsh-your-turn",
   "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Turn-handoff reminder for DeepSeek Harness: an interactive centred popup plus a synthesized chime when the agent hands the turn back to you. · DSH 回合交接提醒：轮到你了——可交互居中弹窗 + 免素材提示音。",
   "license": "MIT",
   "type": "module",

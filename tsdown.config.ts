@@ -17,7 +17,7 @@
 
 import { defineConfig } from 'tsdown'
 
-const id = 'dsh-your-turn'
+const id = '@wu5/dsh-your-turn'
 
 /**
  * Modules the Web shell's ModuleLoader already holds, from the shell's platform

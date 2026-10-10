@@ -65,7 +65,7 @@ describe('lib/client.js', () => {
   it('registers itself once under the package name', () => {
     const registrations = loadClientBundle()
     expect(registrations).toHaveLength(1)
-    expect(registrations[0]!.id).toBe('dsh-your-turn')
+    expect(registrations[0]!.id).toBe('@wu5/dsh-your-turn')
   })
 
   it('materialises a Cordis plugin module and requires only baseline words', () => {
@@ -77,7 +77,7 @@ describe('lib/client.js', () => {
     })
 
     expect(typeof exports.apply).toBe('function')
-    expect(exports.name).toBe('dsh-your-turn')
+    expect(exports.name).toBe('@wu5/dsh-your-turn')
     expect(exports.inject).toEqual(['slots', 'locale', 'sessions', 'configForms'])
     expect([...new Set(required)].sort()).toEqual([
       '@deepseek-ai/dsh-client-ui-primitives',
@@ -95,7 +95,7 @@ describe('lib/client.js', () => {
       return anyModule()
     })
 
-    expect(exports.name).toBe('dsh-your-turn')
+    expect(exports.name).toBe('@wu5/dsh-your-turn')
     expect(exports.inject).toEqual([])
     expect(() => (exports.apply as () => void)()).not.toThrow()
     expect(error).toHaveBeenCalled()
@@ -120,7 +120,7 @@ describe('lib/index.js', () => {
       Config: { (value: unknown): Record<string, unknown>; toJSON(): { dict: Record<string, unknown> } }
       apply: (ctx: unknown) => void
     }
-    expect(host.name).toBe('dsh-your-turn')
+    expect(host.name).toBe('@wu5/dsh-your-turn')
     expect(typeof host.Config).toBe('function')
     expect(typeof host.Config.toJSON).toBe('function')
     expect(typeof host.apply).toBe('function')

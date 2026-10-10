@@ -50,7 +50,11 @@ DeepSeek Harness 的会话很少被人一直盯着——用户在另一个标签
 ## 安装
 
 ```bash
+# 从 GitHub 安装
 npx @deepseek-ai/dsh plugin --profile <你的 profile 名> add github:WenOwen/dsh-your-turn
+
+# 从 npm 安装（发布后）
+npx @deepseek-ai/dsh plugin --profile <你的 profile 名> add @wu5/dsh-your-turn
 ```
 
 插件自带 `cordis.patch.yml` 和预构建的 `lib/`，用户机器上**不需要任何构建步骤**。重启 Harness，刷新浏览器，**设置 → 回合交接提醒** 那一节就能用。

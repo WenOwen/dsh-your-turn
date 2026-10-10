@@ -50,7 +50,11 @@ The plugin lives in two halves that share one Cordis context. The **Host half** 
 ## Install
 
 ```bash
+# From GitHub
 npx @deepseek-ai/dsh plugin --profile <your-profile> add github:WenOwen/dsh-your-turn
+
+# From npm (after publish)
+npx @deepseek-ai/dsh plugin --profile <your-profile> add @wu5/dsh-your-turn
 ```
 
 The plugin comes with a `cordis.patch.yml` and a prebuilt `lib/`; no build step is required on the user's machine. Restart Harness, reload the browser, and the reminder section is live. The settings page lives under **Settings → Turn-handoff reminder**.

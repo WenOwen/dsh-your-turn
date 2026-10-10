@@ -220,7 +220,7 @@ afterEach(() => {
 
 describe('client entry', () => {
   it('declares its Cordis service dependencies and its name', () => {
-    expect(name).toBe('dsh-your-turn')
+    expect(name).toBe('@wu5/dsh-your-turn')
     expect([...inject]).toEqual(['slots', 'locale', 'sessions', 'configForms'])
   })
 

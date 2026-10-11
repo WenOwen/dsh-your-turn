@@ -1,87 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="100%" role="img" aria-labelledby="wf-title wf-desc" preserveAspectRatio="xMidYMid meet">
-  <title id="wf-title">How the handoff is detected</title>
-  <desc id="wf-desc">A linear flow from Agent turn end to a visible reminder and a synthesized chime.</desc>
-
-  <defs>
-    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-      <path d="M0 0 L10 5 L0 10 z" fill="#5b6470"/>
-    </marker>
-  </defs>
-
-  <!-- stage labels -->
-  <g font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="12" fill="#7a7368">
-    <text x="40"   y="38" letter-spacing="1.4">SOURCE</text>
-    <text x="290"  y="38" letter-spacing="1.4">CLIENT</text>
-    <text x="600"  y="38" letter-spacing="1.4">SURFACE</text>
-    <text x="900"  y="38" letter-spacing="1.4">FEEDBACK</text>
-  </g>
-  <g stroke="#d8d2c8" stroke-width="1">
-    <line x1="40"   y1="48" x2="240"  y2="48"/>
-    <line x1="290"  y1="48" x2="540"  y2="48"/>
-    <line x1="600"  y1="48" x2="850"  y2="48"/>
-    <line x1="900"  y1="48" x2="1160" y2="48"/>
-  </g>
-
-  <!-- node 1: source -->
-  <g transform="translate(40 70)">
-    <rect width="200" height="170" rx="12" fill="#fffdf8" stroke="#d8d2c8"/>
-    <text x="20" y="32" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#1d1b18">Agent finishes a turn</text>
-    <text x="20" y="58" font-family="ui-monospace, monospace" font-size="12" fill="#5b6470">uiSession.sessionStatus</text>
-    <text x="20" y="76" font-family="ui-monospace, monospace" font-size="12" fill="#5b6470">→ running: false</text>
-    <text x="20" y="120" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">No Host Remote.</text>
-    <text x="20" y="138" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">No file watcher.</text>
-    <text x="20" y="156" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">Web client already holds it.</text>
-  </g>
-
-  <!-- node 2: client -->
-  <g transform="translate(290 70)">
-    <rect width="250" height="170" rx="12" fill="#fffdf8" stroke="#d8d2c8"/>
-    <text x="20" y="32" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#1d1b18">watchTurns + Notifier</text>
-    <g font-family="ui-monospace, monospace" font-size="12" fill="#5b6470">
-      <text x="20" y="58">filter subagent</text>
-      <text x="20" y="76">dedupe 4s window</text>
-      <text x="20" y="94">enqueue once</text>
-      <text x="20" y="112">chime at raise time</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="260" viewBox="0 0 1200 260" role="img" aria-labelledby="title desc">
+  <title id="title">提醒如何到达你</title>
+  <desc id="desc">Agent 回合结束，Web 客户端观察状态变化，插件弹窗并播放提示音。新问题等待回答时只响铃。</desc>
+  <g font-family="'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif"><rect width="1200" height="260" fill="#0d1117"/>
+    <text x="56" y="56" font-size="30" font-weight="700" fill="#f0f4f8">从回合结束，到轮到你</text>
+    <g font-size="28" font-weight="700" fill="#f0f4f8">
+      <text x="56" y="133" fill="#ffd82e">01</text><text x="113" y="133">回合结束</text>
+      <text x="461" y="133" fill="#ffd82e">02</text><text x="518" y="133">观察状态</text>
+      <text x="866" y="133" fill="#ffd82e">03</text><text x="923" y="133">提醒交接</text>
     </g>
-    <text x="20" y="146" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">Sound engine: Web Audio</text>
-    <text x="20" y="164" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">+ 1.5× master + limiter.</text>
-  </g>
-
-  <!-- node 3: surface -->
-  <g transform="translate(600 70)">
-    <rect width="250" height="170" rx="12" fill="#fffdf8" stroke="#d8d2c8"/>
-    <text x="20" y="32" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#1d1b18">Modal or banner</text>
-    <g font-family="ui-monospace, monospace" font-size="12" fill="#5b6470">
-      <text x="20" y="58">surface: modal | toast</text>
-      <text x="20" y="76">auto-dismiss: 5s</text>
-      <text x="20" y="94">snooze: 5 min</text>
-    </g>
-    <text x="20" y="136" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">Three actions:</text>
-    <text x="20" y="154" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">Open · Snooze · Got it.</text>
-  </g>
-
-  <!-- node 4: feedback -->
-  <g transform="translate(900 70)">
-    <rect width="260" height="170" rx="12" fill="#fffdf8" stroke="#d8d2c8"/>
-    <text x="20" y="32" font-family="-apple-system, sans-serif" font-size="14" font-weight="700" fill="#1d1b18">Speaker badge stays</text>
-    <g font-family="ui-monospace, monospace" font-size="12" fill="#5b6470">
-      <text x="20" y="58">unread count + list</text>
-      <text x="20" y="76">click → open + ack</text>
-      <text x="20" y="94">cross-tab via Broadcast</text>
-    </g>
-    <text x="20" y="136" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">"Got it" or jumping to the</text>
-    <text x="20" y="154" font-family="-apple-system, sans-serif" font-size="12" fill="#7a7368">session clears the entry.</text>
-  </g>
-
-  <!-- arrows -->
-  <g fill="none" stroke="#5b6470" stroke-width="1.6" marker-end="url(#arr)">
-    <path d="M240 155 L 290 155"/>
-    <path d="M540 155 L 600 155"/>
-    <path d="M850 155 L 900 155"/>
-  </g>
-
-  <!-- footer caption -->
-  <g font-family="ui-monospace, monospace" font-size="12" fill="#7a7368">
-    <text x="40" y="290">End-to-end:  turn end → reminder + chime → user action → cross-tab ack</text>
-  </g>
+    <g fill="none" stroke="#a8b2c1" stroke-width="3"><path d="M326 123H409L397 111M409 123L397 135"/><path d="M731 123H814L802 111M814 123L802 135"/></g>
+    <g font-size="22" fill="#a8b2c1"><text x="56" y="181">完成、出错、中断或截断</text><text x="461" y="181">读取已有的客户端状态</text><text x="866" y="181">弹窗 / 横幅 + 提示音</text></g>
+    <text x="56" y="232" fill="#a8b2c1" font-size="20">无需轮询日志文件 · 同源多标签协同 · 新问题等待回答时只响铃</text></g>
 </svg>

@@ -1,40 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 140" width="100%" role="img" aria-labelledby="what-title what-desc" preserveAspectRatio="xMidYMid meet">
-  <title id="what-title">What it does</title>
-  <desc id="what-desc">A central reminder with a chime. Every voice is synthesized in the browser at runtime.</desc>
-  <defs>
-    <linearGradient id="bg-w" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f6f3ee"/>
-      <stop offset="1" stop-color="#ece8e1"/>
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="140" fill="url(#bg-w)"/>
-  <rect x="0" y="139" width="1200" height="1" fill="#d8d2c8"/>
-
-  <!-- left: section index -->
-  <g font-family="ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace" font-size="12" fill="#7a7368">
-    <text x="40" y="38">01</text>
-    <text x="40" y="58" letter-spacing="1.4">WHAT IT DOES</text>
-  </g>
-
-  <!-- right: a single chime pulse illustrating the audio envelope -->
-  <g transform="translate(440 30)">
-    <rect x="0" y="0" width="720" height="80" rx="12" fill="#fffdf8" stroke="#d8d2c8"/>
-    <g transform="translate(28 40)">
-      <path d="M0 0 C 80 -22, 160 -22, 240 0 C 320 22, 400 22, 480 0 C 560 -16, 640 -10, 680 -4" fill="none" stroke="#b86a48" stroke-width="2" stroke-linecap="round"/>
-      <!-- envelope ticks -->
-      <g stroke="#b86a48" stroke-width="1.5" stroke-linecap="round">
-        <line x1="0"   y1="22"  x2="0"   y2="32"/>
-        <line x1="160" y1="32"  x2="160" y2="42"/>
-        <line x1="320" y1="32"  x2="320" y2="42"/>
-        <line x1="480" y1="22"  x2="480" y2="32"/>
-        <line x1="640" y1="14"  x2="640" y2="24"/>
-      </g>
-      <text x="700" y="6" font-family="ui-monospace, monospace" font-size="11" fill="#7a7368">t →</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" role="img" aria-labelledby="title desc">
+  <title id="title">回合交接提醒示意</title>
+  <desc id="desc">功能示意，非截图。回合完成后可跳到会话、知道了或稍后提醒；DSH 等待回答问题时只响铃，不额外弹窗。</desc>
+  <g font-family="'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif"><rect width="1200" height="460" fill="#0d1117"/>
+    <text x="56" y="55" font-size="20" fill="#a8b2c1">功能示意 / 回合交接</text>
+    <g id="reminder-card">
+      <rect x="56" y="84" width="630" height="320" rx="14" fill="#181e28" stroke="#37404e" stroke-width="2"/>
+      <text x="88" y="139" fill="#f0f4f8" font-size="36" font-weight="700">轮到你了</text>
+      <circle cx="97" cy="184" r="7" fill="#a6d65b"/>
+      <text x="116" y="193" fill="#a6d65b" font-size="26">回合已完成</text>
+      <text x="88" y="245" fill="#f0f4f8" font-size="30">你的项目会话</text>
+      <text x="88" y="281" fill="#a8b2c1" font-size="22">查看会话标题、工作目录与回合用时</text>
+      <rect x="88" y="324" width="252" height="48" rx="6" fill="#2b3341"/>
+      <text x="214" y="356" text-anchor="middle" fill="#f0f4f8" font-size="24">5 分钟后再提醒</text>
+      <text x="418" y="356" text-anchor="middle" fill="#f0f4f8" font-size="24">知道了</text>
+      <rect x="494" y="324" width="160" height="48" rx="6" fill="#ffd82e"/>
+      <text x="574" y="356" text-anchor="middle" fill="#171b22" font-size="24" font-weight="700">跳到会话</text>
     </g>
-  </g>
-
-  <!-- title bar -->
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif">
-    <text x="40" y="105" font-size="26" font-weight="700" fill="#1d1b18">A popup you can act on. A chime you can hear.</text>
-  </g>
+    <g id="sound-and-unread">
+      <text x="748" y="135" fill="#ffd82e" font-size="32" font-weight="700">听见交接，也能找回</text>
+      <text x="748" y="187" fill="#f0f4f8" font-size="26">侧栏小喇叭切换声音</text>
+      <text x="748" y="229" fill="#a8b2c1" font-size="24">未查看提醒保留在列表里</text>
+      <path d="M748 267H1144" stroke="#37404e"/>
+      <text x="748" y="320" fill="#f0f4f8" font-size="26">等待你回答时，也响一次</text>
+      <text x="748" y="362" fill="#a8b2c1" font-size="24">不额外弹窗遮住问题</text>
+    </g></g>
 </svg>

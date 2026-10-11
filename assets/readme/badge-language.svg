@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="36" viewBox="0 0 180 36" role="img" aria-labelledby="title desc">
+  <title id="title">文档：简体中文</title>
+  <desc id="desc">文档：简体中文</desc>
+  <g font-family="'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif"><rect width="180" height="36" fill="#cb3d48"/>
+      <rect width="60" height="36" fill="#414751"/>
+      <text x="30" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">文档</text>
+      <text x="120.0" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">简体中文</text></g>
+</svg>

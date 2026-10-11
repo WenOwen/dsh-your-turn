@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="36" viewBox="0 0 220 36" role="img" aria-labelledby="title desc">
+  <title id="title">交接：弹窗 + 提示音</title>
+  <desc id="desc">交接：弹窗 + 提示音</desc>
+  <g font-family="'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif"><rect width="220" height="36" fill="#315acb"/>
+      <rect width="60" height="36" fill="#414751"/>
+      <text x="30" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">交接</text>
+      <text x="140.0" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">弹窗 + 提示音</text></g>
+</svg>

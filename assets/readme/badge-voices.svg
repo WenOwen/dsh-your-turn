@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="36" viewBox="0 0 180 36" role="img" aria-labelledby="title desc">
+  <title id="title">音色：六种可选</title>
+  <desc id="desc">音色：六种可选</desc>
+  <g font-family="'Segoe UI','Microsoft YaHei','PingFang SC',sans-serif"><rect width="180" height="36" fill="#537f13"/>
+      <rect width="60" height="36" fill="#414751"/>
+      <text x="30" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">音色</text>
+      <text x="120.0" y="24" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">六种可选</text></g>
+</svg>

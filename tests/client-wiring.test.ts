@@ -108,7 +108,7 @@ vi.mock('@deepseek-ai/dsh-client-ui-primitives', () => {
 
 import { DICTS, NS } from '../src/client/locale.ts'
 import { apply, inject, name } from '../src/client/index.tsx'
-import { STYLE_ELEMENT_ID } from '../src/client/styles.ts'
+import { STYLE_ELEMENT_ID, installStyles } from '../src/client/styles.ts'
 import { Notifier } from '../src/client/notifier.ts'
 
 /** Stand-in for `ctx.sessions`. */
@@ -231,7 +231,7 @@ describe('client entry', () => {
     harness.runDisposers()
   })
 
-  it('installs one owned stylesheet and removes it on dispose', () => {
+  it('installs one owned stylesheet, tagged for hot-reload bookkeeping, and removes it on dispose', () => {
     const harness = makeContext()
     apply(harness.ctx)
     const selector = `style[data-plugin-css="${STYLE_ELEMENT_ID}"]`
@@ -239,8 +239,44 @@ describe('client entry', () => {
     expect(element).not.toBeNull()
     expect(element?.textContent).toContain('.yt-reminder')
     expect(element?.textContent).toContain('.yt-sound')
+    // Ownership, not decoration: `@deepseek-ai/dsh-client-modules` adopts every
+    // untagged `style:not([data-plugin])` via `claimStyles`, then deletes it via
+    // that adopter's `removeOwnedStyles`. An untagged sheet is therefore stolen
+    // by an unrelated plugin and pruned when that plugin reloads.
+    expect(element?.getAttribute('data-plugin')).toBe('@wu5/dsh-your-turn')
     harness.runDisposers()
     expect(document.head.querySelector(selector)).toBeNull()
+  })
+
+  it('keeps the sheet alive when a superseded instance disposes after a newer install', () => {
+    const harness = makeContext()
+    apply(harness.ctx)
+    const selector = `style[data-plugin-css="${STYLE_ELEMENT_ID}"]`
+
+    // A second activation adopts the same document-wide element, exactly as a hot
+    // reload does. Its disposer must be the one that removes the sheet.
+    const reloaded = installStyles()
+    expect(document.head.querySelectorAll(selector)).toHaveLength(1)
+
+    // The older instance drains last. Before the ownership guard this removed the
+    // element the newer instance was still serving, silently unstyling the page.
+    harness.runDisposers()
+    const element = document.head.querySelector<HTMLStyleElement>(selector)
+    expect(element).not.toBeNull()
+    expect(element?.textContent).toContain('.yt-sound')
+
+    reloaded()
+    expect(document.head.querySelector(selector)).toBeNull()
+  })
+
+  it('self-heals a sheet an older build installed without the ownership marker', () => {
+    // Reproduce the pre-fix artifact: a tagged-for-dedup but unowned style element.
+    document.head.innerHTML = `<style data-plugin-css="${STYLE_ELEMENT_ID}">/* stale */</style>`
+    const dispose = installStyles()
+    const element = document.head.querySelector<HTMLStyleElement>(`style[data-plugin-css="${STYLE_ELEMENT_ID}"]`)
+    expect(element?.getAttribute('data-plugin')).toBe('@wu5/dsh-your-turn')
+    expect(element?.textContent).toContain('.yt-sound')
+    dispose()
   })
 
   it('registers the reminder overlay, the settings page and the sidebar-foot switch, and nothing else', () => {

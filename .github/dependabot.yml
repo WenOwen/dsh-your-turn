@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        patterns:
+          - "@deepseek-ai/*"
+          - "tsdown"
+          - "typescript"
+          - "vitest"
+          - "@types/*"
+      runtime:
+        dependency-type: "production"
+        patterns:
+          - "@deepseek-ai/schemastery"
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dependencies"
+    # The shipped lib/ output is byte-compared in audit/, so Dependabot PRs
+    # that touch devDependencies that affect build output must rebuild.
+    # Reviewers should run `pnpm build` and the audit scripts before merge.

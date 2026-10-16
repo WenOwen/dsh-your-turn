@@ -1,4 +1,4 @@
-# Keep text files as they are on disk; the plugins's shipped artifacts are
+# Keep text files as they are on disk; the plugin's shipped artifacts are
 # byte-compared against the build output, so normalizing line endings on
 # checkout would make a fresh clone differ from `pnpm build`.
 * text=auto eol=lf

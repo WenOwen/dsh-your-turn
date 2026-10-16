@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Settings & Install troubleshooting
+    url: https://github.com/WenOwen/dsh-your-turn#安装
+    about: Open the section in the Chinese README for install, settings, and the "no sound?" checklist before filing an issue.
+  - name: Settings & Install (English)
+    url: https://github.com/WenOwen/dsh-your-turn#install
+    about: Open the install + compatibility section in README.en.md if you prefer the English walkthrough.

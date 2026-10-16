@@ -53,7 +53,7 @@
   "homepage": "https://github.com/WenOwen/dsh-your-turn#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/WenOwen/dsh-your-turn.git"
+    "url": "git+https://github.com/WenOwen/dsh-your-turn.git"
   },
   "bugs": {
     "url": "https://github.com/WenOwen/dsh-your-turn/issues"
@@ -82,8 +82,9 @@
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "node \"C:/Users/Administrator/.agents/skills/build-deepseek-harness-plugin/scripts/check_plugin.mjs\" .",
-    "prepack": "npm run build"
+    "check": "node scripts/check-plugin.mjs",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run check"
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "~3.18.4"

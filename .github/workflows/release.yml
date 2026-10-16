@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Validate only; do not publish to npm or create a Release'
+        type: boolean
+        default: true
+      tag:
+        description: 'Existing version tag (required for a real publish, e.g. v0.1.1)'
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  id-token: write
+
+# Tag push and Release publication for the same tag must not publish concurrently.
+concurrency:
+  group: npm-release-${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+
+      - name: Ensure npm supports Trusted Publishing
+        run: npm install --global npm@11
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Validate release tag and select npm dist-tag
+        id: plan
+        if: github.event_name != 'workflow_dispatch' || inputs.dry-run == false
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+        run: node scripts/release-plan.mjs "$RELEASE_TAG"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and verify
+        run: |
+          pnpm run typecheck
+          pnpm run build
+          pnpm run test
+          pnpm run check
+
+      - name: Inspect publish contents
+        run: npm pack --dry-run
+
+      - name: Check whether this version is already on npm
+        id: published
+        if: github.event_name != 'workflow_dispatch' || inputs.dry-run == false
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        shell: bash
+        run: |
+          PACKAGE=$(node -p "require('./package.json').name")
+          if npm view "$PACKAGE@$VERSION" version --json --registry=https://registry.npmjs.org > npm-view.json 2> npm-view-error.txt; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$PACKAGE@$VERSION is already published; skipping npm publish."
+          elif grep -q 'E404' npm-view-error.txt; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            cat npm-view-error.txt
+            exit 1
+          fi
+
+      # No npm token secret. npm exchanges the GitHub OIDC identity at publish time.
+      - name: Publish via npm Trusted Publishing
+        if: steps.published.outputs.exists == 'false'
+        env:
+          DIST_TAG: ${{ steps.plan.outputs.dist-tag }}
+        run: npm publish --provenance --access public --tag "$DIST_TAG" --registry=https://registry.npmjs.org
+
+      - name: Verify npm version
+        if: github.event_name != 'workflow_dispatch' || inputs.dry-run == false
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          PACKAGE=$(node -p "require('./package.json').name")
+          npm view "$PACKAGE@$VERSION" version dist.shasum --registry=https://registry.npmjs.org --prefer-online
+
+      - name: Create GitHub Release for a pushed tag
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.plan.outputs.tag }}
+          DIST_TAG: ${{ steps.plan.outputs.dist-tag }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            FLAGS=()
+            if [ "$DIST_TAG" = next ]; then FLAGS+=(--prerelease); fi
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes "${FLAGS[@]}"
+          fi

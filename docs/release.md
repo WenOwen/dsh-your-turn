@@ -63,6 +63,7 @@ GitHub → Actions → **Release** → **Run workflow**：
 - **Tag must match**：tag 与代码中的版本不一致；创建正确的新版本 tag，不要挪动已发布 tag。
 - **等待 environment 审批**：在 GitHub 的 `release` Environment 中完成配置的人工审批。
 - **已发布版本**：npm 版本不可覆盖，需要修改内容就升版。
+- **npm 正在处理新包**：提交成功后可能暂时返回 404；工作流会有上限地重试查询。如果仍失败，待 npm 处理完成后用 Run workflow、`dry-run=false`、原版本 tag 重跑；已发布版本会跳过，不必升版或挪动 tag。
 - **CI 成功但客户端没变化**：npm 不会自动升级已安装插件，用户需主动更新插件并重启 Harness。
 
 ## 本地手动发布（备用）

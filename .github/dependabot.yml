@@ -42,3 +42,14 @@ updates:
         versions: [">=7.0.0"]
       - dependency-name: "tsdown"
         versions: [">=0.23.0 <0.24.0"]
+      # The plugin does not bundle React; it resolves whatever the DSH host
+      # supplies, and the host renders with 18.x while peerDependencies says
+      # ^18.2.0. Testing only against 19 would leave the version production
+      # actually loads untested (PR #5). Take devDeps, @types and the peer
+      # range together once DSH's client UI moves to 19.
+      - dependency-name: "react"
+        versions: [">=19.0.0"]
+      - dependency-name: "react-dom"
+        versions: [">=19.0.0"]
+      - dependency-name: "@types/react"
+        versions: [">=19.0.0"]

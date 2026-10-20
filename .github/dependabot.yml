@@ -28,3 +28,17 @@ updates:
     # The shipped lib/ output is byte-compared in audit/, so Dependabot PRs
     # that touch devDependencies that affect build output must rebuild.
     # Reviewers should run `pnpm build` and the audit scripts before merge.
+    #
+    # Deliberately held back until someone runs the toolchain migration on
+    # purpose (see dcd9e72). Remove an entry here when that work is done:
+    # - typescript 7 is still flagged experimental on tsdown's declaration
+    #   emit path and rewrites lib/index.d.ts without a consumer-visible
+    #   change.
+    # - tsdown 0.23 duplicates the ~18 kB stylesheet string in lib/client.js
+    #   by inlining it where the build previously reused the CSS const, so
+    #   the shipped client bundle grows 109 kB -> 127 kB.
+    ignore:
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
+      - dependency-name: "tsdown"
+        versions: [">=0.23.0 <0.24.0"]

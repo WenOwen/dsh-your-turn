@@ -1,0 +1,57 @@
+name: CI
+
+# Every pull request — Dependabot included — has to pass the same gate the
+# release workflow runs, so a dependency bump cannot reach master unverified.
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Matches the pnpm major that produced pnpm-lock.yaml.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Check plugin contract
+        run: pnpm run check
+
+      # lib/ is committed and shipped, so a stale artifact is a review problem.
+      # This stays a warning: build output that legitimately changes (a
+      # deliberate toolchain bump) must still be able to land after review.
+      - name: Shipped lib/ matches a fresh build
+        if: github.event_name == 'pull_request'
+        run: |
+          if ! git diff --exit-code -- lib/; then
+            echo "::warning file=lib::lib/ differs from a fresh build; commit the rebuilt artifacts or explain the drift."
+          fi

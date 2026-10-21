@@ -78,6 +78,11 @@ async function mount(
   return { container, row, button, tooltip, edit, preview, openSession, dismiss, acknowledge, notifierState }
 }
 
+/** Dispatch a bubbling pointer event the way the browser would. */
+function pointer(target: Element, type: 'pointerover' | 'pointerout', relatedTarget: Element | null = null): void {
+  target.dispatchEvent(new MouseEvent(type, { bubbles: true, relatedTarget }))
+}
+
 describe('sidebar-foot sound switch', () => {
   it('sits in the seat as "on" while the chime plays', async () => {
     const { row, button } = await mount(view('true'))
@@ -165,7 +170,7 @@ describe('sidebar-foot sound switch', () => {
     expect(container.querySelector('button')).toBeNull()
   })
 
-  it('shows a pending badge and a hover tooltip listing unread sessions', async () => {
+  it('shows a pending badge and a panel listing unread sessions', async () => {
     const reminders = [
       { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
       { id: 'b', sessionId: 'session-2', title: 'Patch login', outcome: 'failed' },
@@ -173,8 +178,13 @@ describe('sidebar-foot sound switch', () => {
     const { button, tooltip, row, openSession, acknowledge } = await mount(view('true'), true, vi.fn(), reminders)
     expect(row()?.getAttribute('data-pending')).toBe('true')
     expect(button()?.querySelector('.yt-sound__badge')?.textContent).toBe('2')
-    expect(button()?.getAttribute('aria-describedby')).toBe('yt-sound-pending')
+    // The panel holds buttons, so it is a popover dialog the trigger owns —
+    // not a tooltip, which must not carry interactive content.
+    expect(button()?.getAttribute('aria-haspopup')).toBe('dialog')
+    expect(button()?.getAttribute('aria-controls')).toBe('yt-sound-pending')
     expect(tooltip()?.getAttribute('id')).toBe('yt-sound-pending')
+    expect(tooltip()?.getAttribute('role')).toBe('dialog')
+    expect(tooltip()?.getAttribute('aria-labelledby')).toBe('yt-sound-pending-title')
     const items = [...tooltip()!.querySelectorAll('.yt-sound__pendingItem')]
     expect(items.map(item => item.textContent)).toEqual([
       'Refactor auth',
@@ -183,6 +193,99 @@ describe('sidebar-foot sound switch', () => {
     await act(async () => items[0]!.dispatchEvent(new Event('click', { bubbles: true })))
     expect(openSession).toHaveBeenCalledWith('session-1')
     expect(acknowledge).toHaveBeenCalledWith('a')
+  })
+
+  it('opens the panel when the pointer reaches the speaker', async () => {
+    const { button, row } = await mount(view('true'), true, vi.fn(), [
+      { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
+    ])
+    expect(row()?.getAttribute('data-open')).toBeNull()
+    expect(button()?.getAttribute('aria-expanded')).toBe('false')
+    await act(async () => pointer(button()!, 'pointerover'))
+    expect(row()?.getAttribute('data-open')).toBe('true')
+    expect(button()?.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('keeps the panel open while the pointer travels from the speaker into it', async () => {
+    vi.useFakeTimers()
+    try {
+      const { button, row, tooltip } = await mount(view('true'), true, vi.fn(), [
+        { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
+      ])
+      await act(async () => pointer(button()!, 'pointerover'))
+      expect(row()?.getAttribute('data-open')).toBe('true')
+      // The pointer leaves the speaker for the panel: the departure is still
+      // inside the switch, so the panel must not close on the way.
+      await act(async () => pointer(button()!, 'pointerout', tooltip()!))
+      await act(async () => { vi.advanceTimersByTime(1000) })
+      expect(row()?.getAttribute('data-open')).toBe('true')
+      // And once the pointer enters the panel it is open there too.
+      await act(async () => pointer(tooltip()!, 'pointerover'))
+      await act(async () => { vi.advanceTimersByTime(1000) })
+      expect(row()?.getAttribute('data-open')).toBe('true')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('closes the panel once the pointer leaves the switch for good', async () => {
+    vi.useFakeTimers()
+    try {
+      const { button, row, container } = await mount(view('true'), true, vi.fn(), [
+        { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
+      ])
+      await act(async () => pointer(button()!, 'pointerover'))
+      expect(row()?.getAttribute('data-open')).toBe('true')
+      await act(async () => pointer(button()!, 'pointerout', container.ownerDocument.body))
+      await act(async () => { vi.advanceTimersByTime(1000) })
+      expect(row()?.getAttribute('data-open')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('pins the panel without touching the mute switch', async () => {
+    const { button, row, tooltip, edit } = await mount(view('true'), true, vi.fn(), [
+      { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
+    ])
+    const pin = tooltip()!.querySelector<HTMLButtonElement>('.yt-sound__pin')!
+    expect(pin.getAttribute('aria-pressed')).toBe('false')
+    await act(async () => pin.dispatchEvent(new Event('click', { bubbles: true })))
+    expect(pin.getAttribute('aria-pressed')).toBe('true')
+    expect(row()?.getAttribute('data-pinned')).toBe('true')
+    expect(row()?.getAttribute('data-open')).toBe('true')
+    // Reading the list must not cost a click on the speaker: the chime stays.
+    expect(edit).not.toHaveBeenCalled()
+    // Pinned means it survives the pointer leaving the switch.
+    await act(async () => pointer(button()!, 'pointerout', document.body))
+    expect(row()?.getAttribute('data-open')).toBe('true')
+    await act(async () => pin.dispatchEvent(new Event('click', { bubbles: true })))
+    expect(pin.getAttribute('aria-pressed')).toBe('false')
+    expect(row()?.getAttribute('data-pinned')).toBeNull()
+  })
+
+  it('unpins on Escape and on a click outside the switch', async () => {
+    const { row, tooltip } = await mount(view('true'), true, vi.fn(), [
+      { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
+    ])
+    const pin = tooltip()!.querySelector<HTMLButtonElement>('.yt-sound__pin')!
+    await act(async () => pin.dispatchEvent(new Event('click', { bubbles: true })))
+    expect(row()?.getAttribute('data-pinned')).toBe('true')
+    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    expect(row()?.getAttribute('data-pinned')).toBeNull()
+
+    await act(async () => pin.dispatchEvent(new Event('click', { bubbles: true })))
+    expect(row()?.getAttribute('data-pinned')).toBe('true')
+    await act(async () => document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })))
+    expect(row()?.getAttribute('data-pinned')).toBeNull()
+  })
+
+  it('keeps the panel open for the keyboard', async () => {
+    const { button, row } = await mount(view('true'), true, vi.fn(), [
+      { id: 'a', sessionId: 'session-1', title: 'Refactor auth', outcome: 'completed' },
+    ])
+    await act(async () => button()!.dispatchEvent(new FocusEvent('focusin', { bubbles: true })))
+    expect(row()?.getAttribute('data-open')).toBe('true')
   })
 
   it('collapses the badge when every pending reminder has been read', async () => {

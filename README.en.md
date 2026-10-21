@@ -13,7 +13,7 @@
 - A centred popup or top banner for completed, failed, interrupted or limited turns, with session details and duration.
 - Open the session, dismiss the reminder, or snooze it for five minutes.
 - A chime when a new question needs your answer, without an extra popup covering the question.
-- A sidebar speaker toggle and unread reminder list. Auto-dismissed popups remain in the list.
+- A sidebar speaker toggle and unread reminder list. Hovering the speaker opens the list, the pointer can move into it, and the pin keeps it open — reading the list never costs a click on the mute switch. Escape or a click outside closes it, and a session in the list opens in one click. Auto-dismissed popups remain in the list.
 - Six voices synthesized by Web Audio, with separate success and failure choices and no shipped audio files.
 - Coordination of turn-handoff reminders across tabs on the same origin.
 

@@ -211,8 +211,15 @@ export const CSS = `
 /*
  * The pending list that appears when the user hovers or focuses the speaker.
  * Anchored above the icon in the rail and wide enough to read a session title.
- * Pure CSS reveal (no JS event handlers), so it inherits the seat's own focus
- * behaviour and never steals pointer or keyboard focus from the toggle.
+ *
+ * The panel is driven by the switch's own data-open state rather than by a
+ * bare CSS :hover: the pointer has to be able to travel from the speaker
+ * into the list, and a hover that ends at the first pixel outside the speaker
+ * would close the panel before the pointer ever reached it. The switch keeps
+ * track of the pointer itself and reports it here.
+ *
+ * The panel is not a scroll box: the list inside it scrolls instead, so the
+ * heading and the pin stay put and the hover bridge below is not clipped.
  */
 [data-plugin="dsh-your-turn"] .yt-sound__pending {
   position: absolute;
@@ -220,8 +227,6 @@ export const CSS = `
   inset-inline-start: 0;
   min-inline-size: 200px;
   max-inline-size: 280px;
-  max-block-size: 240px;
-  overflow-y: auto;
   padding: 8px;
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2);
@@ -234,12 +239,31 @@ export const CSS = `
   transition: opacity 140ms ease, transform 140ms ease;
   z-index: 1;
 }
+
+/*
+ * The hover bridge: an invisible strip filling the gap between the panel and
+ * the speaker. Without it that gap is dead space — the pointer crosses it,
+ * the switch is no longer hovered, and the panel disappears before the pointer
+ * can reach it. With it the trip from the speaker to the list never leaves the
+ * switch, so the list is actually usable.
+ *
+ * The strip is a little taller than the gap: an absolutely positioned box
+ * resolves against the panel's padding box, so a strip exactly as tall as the
+ * gap would stop a pixel short of the speaker and leave that pixel dead.
+ */
+[data-plugin="dsh-your-turn"] .yt-sound__pending::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -10px;
+  block-size: 10px;
+}
+
 [data-plugin="dsh-your-turn"].yt-sound[data-rail='rail'] .yt-sound__pending {
   inset-inline-start: 0;
   inset-inline-end: auto;
 }
-[data-plugin="dsh-your-turn"].yt-sound:hover .yt-sound__pending,
-[data-plugin="dsh-your-turn"].yt-sound:focus-within .yt-sound__pending {
+[data-plugin="dsh-your-turn"].yt-sound[data-open='true'] .yt-sound__pending {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
@@ -248,14 +272,54 @@ export const CSS = `
   [data-plugin="dsh-your-turn"] .yt-sound__pending { transition: none; }
 }
 
+/* The heading row: the count on the left, the pin on the right. */
+[data-plugin="dsh-your-turn"] .yt-sound__pendingHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-end: 6px;
+}
+
 [data-plugin="dsh-your-turn"] .yt-sound__pendingTitle {
-  margin: 0 0 6px;
+  margin: 0;
   padding: 0 6px;
   font-size: 0.75em;
   line-height: 1.4;
   color: var(--dsw-alias-label-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/*
+ * The pin: keeps the list on screen after the pointer leaves, so reading the
+ * reminders never costs a click on the mute switch.
+ */
+[data-plugin="dsh-your-turn"] .yt-sound__pin {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+[data-plugin="dsh-your-turn"] .yt-sound__pin:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+[data-plugin="dsh-your-turn"] .yt-sound__pin[aria-pressed='true'] {
+  color: var(--dsw-alias-link);
+}
+[data-plugin="dsh-your-turn"] .yt-sound__pin:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color);
+  outline-offset: 2px;
 }
 
 [data-plugin="dsh-your-turn"] .yt-sound__pendingList {
@@ -265,6 +329,9 @@ export const CSS = `
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-block-size: 208px;
+  overflow-y: auto;
+  overscroll-behavior-block: contain;
 }
 
 [data-plugin="dsh-your-turn"] .yt-sound__pendingItem {

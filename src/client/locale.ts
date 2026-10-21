@@ -104,6 +104,8 @@ const zh = {
   'sound.pending.one': '1 个未查看的提醒',
   'sound.pending.many': '{count} 个未查看的提醒',
   'sound.pending.openSession': '跳到该会话',
+  'sound.pending.pin': '固定这个列表',
+  'sound.pending.unpin': '取消固定',
 
   'field.volume.label': '音量',
   'field.volume.hint': '0 到 100。',
@@ -223,6 +225,8 @@ const en: Record<YourTurnKey, string> = {
   'sound.pending.one': '1 unread reminder',
   'sound.pending.many': '{count} unread reminders',
   'sound.pending.openSession': 'Open this session',
+  'sound.pending.pin': 'Pin this list',
+  'sound.pending.unpin': 'Unpin this list',
 
   'field.volume.label': 'Volume',
   'field.volume.hint': 'From 0 to 100.',
